@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Console, Effect, Option } from "effect";
 import { Redis } from "../Databases/Redis.js";
 import { EndSearhingKeyboard } from "../Keyboards/EndSearhing.js";
 import { MainMenu } from "../Keyboards/Main.js";
@@ -34,7 +34,7 @@ export const toSearch = (gender: User["gender"]) =>
 
 
     if (Option.isNone(matchUser)) {
-      yield* Effect.promise(() => context.reply(textToSearch[gender], { reply_markup: EndSearhingKeyboard }));
+      yield* safeReply(context, textToSearch[gender], { reply_markup: EndSearhingKeyboard });
       yield* queue.append(selfQueue);
     }
     else yield* Connection.connect(context, selfQueue, matchUser.value)
@@ -46,7 +46,9 @@ export const toSearch = (gender: User["gender"]) =>
     Effect.catchTags({
       "RedisAnyError": () => safeReply(context, "Простите. произошла какая-то ошибка, мы уже её исправляем", { reply_markup: MainMenu }),
       "UserNotFoundError": () => Effect.promise(() => toSearchNotAut(context)),
-      // "UserAlreadyInQueue": () => Effect.promise(() => RToSearchInQueue(context))
+      "UserAlreadyInQueue": () => Effect.promise(() => toSearchInQueue(context)),
+      "ForbiddenError": () => Console.log(context),
+      "UnknownMessageError": () => Console.log(context)
     }),
     Effect.runPromise,
   )
@@ -65,26 +67,55 @@ export const toNextSearch = async (context: GC) => {
 export const toSearchNotAut = async (context: GC) => Effect.gen(function*(_) {
   yield* safeReply(context, "Для начала вам нужно зарегестрироваться");
   yield* Effect.promise(() => context.conversation.enter("toStartNotAuth"))
-}).pipe(Effect.runPromise)
+})
+  .pipe(
+    Effect.catchTags({
+      "ForbiddenError": () => Console.log(context),
+      "UnknownMessageError": () => Console.log(context)
+    }),
+    Effect.runPromise
+  )
 
 export const toSearchInQueue = async (context: GC) =>
   safeReply(context, "Вы уже находитесь в поиске", { reply_markup: EndSearhingKeyboard })
-    .pipe(Effect.runPromise)
+    .pipe(
+      Effect.catchTags({
+        "ForbiddenError": () => Console.log(context),
+        "UnknownMessageError": () => Console.log(context)
+      }),
+      Effect.runPromise
+    )
 
 export const toSearchInConnection = async (context: GC) =>
   safeReply(context, "У вас уже есть собеседник", { reply_markup: StopConventionKeyboard })
-    .pipe(Effect.runPromise)
+    .pipe(
+      Effect.catchTags({
+        "ForbiddenError": () => Console.log(context),
+        "UnknownMessageError": () => Console.log(context)
+      }),
+      Effect.runPromise
+    )
 
 export const toStopSearchingIsNot = async (context: GC) =>
-  safeReply(context, "У вас уже есть собеседник", { reply_markup: StopConventionKeyboard })
-    .pipe(Effect.runPromise)
+  safeReply(context, "У вас и так нету собеседника", { reply_markup: StopConventionKeyboard })
+    .pipe(
+      Effect.catchTags({
+        "ForbiddenError": () => Console.log(context),
+        "UnknownMessageError": () => Console.log(context)
+      }),
+      Effect.runPromise
+    )
 
 export const toStopSearching = (context: GC) => Effect.gen(function*(_) {
   const { removal } = yield* QueueService;
   yield* removal(context)
   yield* safeReply(context, "Вы прекратили поиск собеседника", { reply_markup: MainMenu })
 }).pipe(
-  Effect.catchTag("UserIsNotQueue", () => safeReply(context, "Вы не находитесь в поиске", { reply_markup: MainMenu })),
+  Effect.catchTags({
+    "UserIsNotQueue": () => safeReply(context, "Вы не находитесь в поиске", { reply_markup: MainMenu }),
+    "ForbiddenError": () => Console.log(context),
+    "UnknownMessageError": () => Console.log(context)
+  }),
   Effect.provide(QueueServiceLive),
   Effect.runPromise,
 )

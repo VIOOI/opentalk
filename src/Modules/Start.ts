@@ -99,16 +99,22 @@ export const toStartNotAuth = (conversation: GConversation, context: GC) =>
 ‼️*Без тегов мы не подберём вам собеседника*
 
 Теги пишутся черезер пробел, например: Аниме игры фильмы`,
-          { 
+          {
             reply_markup: { remove_keyboard: true },
             parse_mode: "Markdown"
           }
         ),
         () => conversation.waitFor("message:text"),
-        async () => {
-          await context.reply("Хорошо мы оставим оставим их пустыми, вы всегда можете поменять его в настройках")
+        async () => Effect.gen(function*(_) {
+          yield* safeReply(context, "Хорошо мы оставим оставим их пустыми, вы всегда можете поменять его в настройках")
           return Array.empty<string>();
-        }
+        }).pipe(
+          Effect.catchTags({
+            "ForbiddenError": () => Effect.succeed(Array.empty<string>()),
+            "UnknownMessageError": () => Effect.succeed(Array.empty<string>())
+          }),
+          Effect.runPromise,
+        )
       ),
       Effect.map(
         Either.getOrElse(
@@ -166,10 +172,20 @@ export const RToStartAuth = (context: GC) =>
 export const toStartInConnection = async (context: GC) => safeReply(
   context,
   "У вас есть собеседник, для начала закончите диалог с ним"
-).pipe(Effect.runPromise);
+).pipe(
+    Effect.catchTags({
+      "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`)
+    }),
+    Effect.runPromise
+  );
 
 export const toStartInQueue = async (context: GC) => safeReply(
   context,
   "Вы находитесь в поиске, для начала остановите поиск собеседника"
-).pipe(Effect.runPromise);
+).pipe(
+    Effect.catchTags({
+      "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`)
+    }),
+    Effect.runPromise
+  );
 

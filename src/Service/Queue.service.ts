@@ -84,8 +84,6 @@ export const QueueServiceLive = Layer.succeed(
               || (that.gender === self.searchGender && that.searchGender === self.gender)
               || (that.searchGender === "any" && self.searchGender === that.gender);
 
-            console.log(candidate.tags, self.tags, candidate.tags.some(tag => self.tags.includes(tag)));
-
             return Math.abs(candidate.age - self.age) <= 5
               && candidate.tags.some(tag => self.tags.includes(tag))
               && isGenderMatch(self, candidate)

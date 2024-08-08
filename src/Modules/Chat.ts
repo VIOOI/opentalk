@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Console, Effect } from "effect";
 import { MainMenu } from "../Keyboards/Main.js";
 import { ConnectionService, ConnectionServiceLive } from "../Service/Connection.service.js";
 import { GC } from "../types.js";
@@ -15,7 +15,7 @@ const lockout = (context: GC) => Effect.gen(function*(_) {
   yield* Effect.promise(async () => Redis.del(`connect:${context.from!.username!}`, `connect:${that.id}`));
   yield* safeReply(context, "Вас собеседник заблокировал бота, нам пришлось разорвать соединение", { reply_markup: MainMenu })
   yield* safeReply(context, "Если хотите, оставьте мнение о вашем собеседнике. Рейтинг сильно влияет на поиск", { reply_markup: RaitingInlineKeyboard(that) })
-  
+
 }).pipe(Effect.provide(ConnectionServiceLive))
 
 export const Forwarding = Effect.gen(function*(_) {
@@ -160,4 +160,10 @@ export const toStopConvection = (context: GC) => Effect.gen(function*() {
 )
 export const toStopConvectionIsNot = async (context: GC) =>
   safeReply(context, "Для начала нужно найти собеседника", { reply_markup: MainMenu })
-    .pipe(Effect.runPromise)
+    .pipe(
+      Effect.catchTags({
+        "ForbiddenError": () => Console.log(context),
+        "UnknownMessageError": () => Console.log(context)
+      }),
+      Effect.runPromise
+    )
