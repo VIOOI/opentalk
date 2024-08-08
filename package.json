@@ -1,0 +1,65 @@
+{
+  "name": "@namelessdev/slots",
+  "version": "0.0.0",
+  "description": "",
+  "type": "module",
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "module": "./build/esm/index.js",
+  "author": "Vladimir Below <vladimirviooi@gmail.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "require": {
+        "types": "./build/index.d.ts",
+        "default": "./build/index.js"
+      },
+      "import": {
+        "types": "./build/index.d.ts",
+        "default": "./build/esm/index.js"
+      }
+    }
+  },
+  "files": [
+    "build/**"
+  ],
+  "scripts": {
+    "start": "nodemon ./build/index.js",
+    "lint": "pnpm biome lint .",
+    "lint-fix": "pnpm biome lint . --apply",
+    "format": "pnpm biome format . --write",
+    "check": "pnpm biome check --apply .",
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.6.4",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/mongoose": "^5.11.97",
+    "@types/node": "^20.14.10",
+    "drizzle-kit": "^0.23.0",
+    "terser": "^5.27.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@effect/schema": "^0.68.24",
+    "@grammyjs/conversations": "^1.2.0",
+    "@grammyjs/menu": "^1.2.2",
+    "@grammyjs/parse-mode": "^1.10.0",
+    "@grammyjs/router": "^2.0.0",
+    "better-sqlite3": "^11.1.2",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.32.0",
+    "effect": "^3.0.5",
+    "grammy": "^1.27.0",
+    "ioredis": "^5.4.1",
+    "lowdb": "^7.0.1",
+    "mongoose": "^8.5.1",
+    "nodemon": "^3.1.4",
+    "type-plus": "^7.6.2"
+  }
+}
