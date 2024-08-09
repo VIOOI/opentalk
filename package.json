@@ -27,7 +27,7 @@
     "build/**"
   ],
   "scripts": {
-    "start": "nodemon ./build/index.js",
+    "start": "./build/index.js",
     "lint": "pnpm biome lint .",
     "lint-fix": "pnpm biome lint . --apply",
     "format": "pnpm biome format . --write",
@@ -40,6 +40,7 @@
     "@types/better-sqlite3": "^7.6.11",
     "@types/mongoose": "^5.11.97",
     "@types/node": "^20.14.10",
+    "@types/uuid": "^10.0.0",
     "drizzle-kit": "^0.23.0",
     "terser": "^5.27.0",
     "tsup": "^8.0.1",
@@ -60,6 +61,7 @@
     "lowdb": "^7.0.1",
     "mongoose": "^8.5.1",
     "nodemon": "^3.1.4",
-    "type-plus": "^7.6.2"
+    "type-plus": "^7.6.2",
+    "uuid": "^10.0.0"
   }
 }
