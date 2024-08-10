@@ -1,4 +1,4 @@
-import { Config as Conf, Context, Effect, Layer } from "effect"
+import { Config as Conf, Context, Effect, Layer, Record } from "effect"
 import { Bot, session } from "grammy"
 import * as Types from "../Types.js"
 
@@ -32,7 +32,7 @@ export const Config = Layer.effectDiscard(
     grammy.use(session({
       type: "multi",
       search: { initial: () => "any" },
-      history: { initial: () => [] },
+      history: { initial: () => Record.empty<string, string>() },
       conversation: { initial: () => ({}) }, // may be left empty
     }))
 

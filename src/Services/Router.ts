@@ -1,5 +1,5 @@
 import { Router as GRouter } from "@grammyjs/router"
-import { Effect, Layer, Record } from "effect"
+import { Effect, Layer, Option, Record } from "effect"
 import { Grammy } from "./Grammy.js";
 import * as Types from "../Types.js"
 import { UserService, UserServiceLive } from "./Users.js";
@@ -101,8 +101,16 @@ export const Router = Layer.effectDiscard(
     InConnection.on(":video_note", forwarding.videoNote)
     InConnection.on(":sticker", forwarding.sticker)
     InConnection.on(":voice", forwarding.voice)
-
-
+    InConnection.on("edit:text", (context) => Effect.gen(function*(_) {
+      const connection = yield* ConnectionService;
+      const companion = yield* connection.getCompanion(context);
+      const message_id = Record.get(context.session.history, context.editedMessage!.message_id!.toString())
+      if (Option.isSome(message_id))
+        context.api.editMessageText(companion.chat, Number(message_id.value), context.editedMessage?.text!)
+    }).pipe(
+      Effect.provide(ConnectionServiceLive),
+      Effect.runPromise,
+    ))
 
     grammy.use(router);
   })

@@ -1,4 +1,4 @@
-import { Console, Effect, Random } from "effect";
+import { Console, Effect, Random, Record } from "effect";
 import * as Types from "../Types.js"
 import { MainMenu } from "../Keyboards/Main.js";
 import { ForbiddenError, safeReply, safeSendMessage, UnknownMessageError } from "../Shared/safeSend.js";
@@ -51,10 +51,14 @@ export const Forwarding = Effect.gen(function*(_) {
           }
         })
       ),
-      Effect.andThen(({ self, that }) => Effect.sync(() => context.session.history.push({
-        self: self.message_id.toString(),
-        that: that.message_id.toString()
-      })))
+      Effect.andThen(({ self, that }) => Effect.sync(
+        () => context.session.history = Record.set(context.session.history, self.message_id.toString(), that.message_id.toString()))
+      ),
+      // Effect.andThen(({ self, that }) => Effect.sync(() => context.session.history.push({
+      //   self: self.message_id.toString(),
+      //   that: that.message_id.toString()
+      // }))),
+      Effect.andThen(() => Console.log(context.from?.username, context.session.history))
     ).pipe(
       Effect.catchTags({
         "ForbiddenError": () => disconnectOfForbidden(context)

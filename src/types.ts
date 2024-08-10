@@ -9,7 +9,7 @@ import { ParseModeFlavor } from "@grammyjs/parse-mode";
 export type SessionData = {
   // self: Ref.Ref<User>,
   search: "men" | "women" | "any"
-  history: Array<{ self: string, that: string }>
+  history: Record<string, string>
   // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   conversation?: Record<string, any>
 
