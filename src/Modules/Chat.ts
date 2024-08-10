@@ -1,49 +1,68 @@
-import { Console, Effect } from "effect";
+import { Console, Effect, Random } from "effect";
+import * as Types from "../Types.js"
 import { MainMenu } from "../Keyboards/Main.js";
-import { ConnectionService, ConnectionServiceLive } from "../Service/Connection.service.js";
-import { GC } from "../types.js";
-import { ForbiddenError, safeReply, UnknownMessageError } from "../Shared/safeSend.js";
-import { User } from "../Models/User.model.js";
+import { ForbiddenError, safeReply, safeSendMessage, UnknownMessageError } from "../Shared/safeSend.js";
 import { Redis } from "../Databases/Redis.js";
 import { RaitingInlineKeyboard } from "../Keyboards/Raiting.js";
+import { ConnectionService, ConnectionServiceLive } from "../Services/Connection.js";
+import { sendBigAds, sendInlineAgs } from "../Services/Connection.helpers.js";
+import { UserService, UserServiceLive } from "../Services/Users.js";
+import { AdsServiceLive } from "../Services/Ads.js";
 
-const lockout = (context: GC) => Effect.gen(function*(_) {
-  const that = yield* ConnectionService.pipe(
-    Effect.andThen((service) => service.getCompanion(context))
-  );
+const disconnectOfForbidden = (context: Types.Context) => Effect.gen(function*(_) {
+  const that = yield* ConnectionService.pipe(Effect.andThen((service) => service.getCompanion(context)));
+  const self = yield* UserService.pipe(Effect.andThen(service => service.getSelf(context)))
 
-  yield* Effect.promise(async () => Redis.del(`connect:${context.from!.username!}`, `connect:${that.id}`));
-  yield* safeReply(context, "Вас собеседник заблокировал бота, нам пришлось разорвать соединение", { reply_markup: MainMenu })
+  const isBigAds = yield* Random.nextRange(0, 10).pipe(Effect.map(n => n > 8));
+
+  yield* Effect.promise(async () => Redis.del(`connect:${self.id}`, `connect:${that.id}`));
+  yield* safeReply(
+    context,
+    "Вас собеседник заблокировал бота, нам пришлось разорвать соединение" + !isBigAds ? ("\n\n" + (yield* sendInlineAgs(self)).content) : "",
+    { reply_markup: MainMenu }
+  )
+  yield* (isBigAds ? sendBigAds(context, self) : Effect.void);
   yield* safeReply(context, "Если хотите, оставьте мнение о вашем собеседнике. Рейтинг сильно влияет на поиск", { reply_markup: RaitingInlineKeyboard(that) })
 
-}).pipe(Effect.provide(ConnectionServiceLive))
+}).pipe(
+  Effect.provide(ConnectionServiceLive),
+  Effect.provide(UserServiceLive),
+  Effect.provide(AdsServiceLive),
+)
 
 export const Forwarding = Effect.gen(function*(_) {
   const connection = yield* ConnectionService;
 
   return {
-    textMessage: (context: GC) => Effect.all({
+    textMessage: (context: Types.Context) => Effect.all({
       user: connection.getCompanion(context),
-      message: Effect.sync(() => context.message!.text)
+      message: Effect.sync(() => context.message!)
     }).pipe(
       Effect.flatMap(
         ({ user, message }) => Effect.tryPromise({
-          try: () => context.api.sendMessage(user.chat, message!),
+          try: async () => {
+            const that = await context.api.sendMessage(user.chat, message.text!)
+            return { self: message, that }
+          },
           catch: (error) => {
             if ((<{ error_code: number }>error).error_code === 403)
               return new ForbiddenError();
             return new UnknownMessageError();
           }
         })
-      )
+      ),
+      Effect.andThen(({ self, that }) => Effect.sync(() => context.session.history.push({
+        self: self.message_id.toString(),
+        that: that.message_id.toString()
+      })))
     ).pipe(
       Effect.catchTags({
-        "ForbiddenError": () => lockout(context)
+        "ForbiddenError": () => disconnectOfForbidden(context)
       }),
       Effect.runPromise
     ),
 
-    photo: (context: GC) => Effect.all({
+    photo: (context: Types.Context) => Effect.all({
       user: connection.getCompanion(context),
       file: Effect.promise(() => context.getFile())
     }).pipe(
@@ -59,12 +78,12 @@ export const Forwarding = Effect.gen(function*(_) {
       )
     ).pipe(
       Effect.catchTags({
-        "ForbiddenError": () => lockout(context)
+        "ForbiddenError": () => disconnectOfForbidden(context)
       }),
       Effect.runPromise
     ),
 
-    video: (context: GC) => Effect.all({
+    video: (context: Types.Context) => Effect.all({
       user: connection.getCompanion(context),
       file: Effect.promise(() => context.getFile())
     }).pipe(
@@ -80,12 +99,12 @@ export const Forwarding = Effect.gen(function*(_) {
       )
     ).pipe(
       Effect.catchTags({
-        "ForbiddenError": () => lockout(context)
+        "ForbiddenError": () => disconnectOfForbidden(context)
       }),
       Effect.runPromise
     ),
 
-    videoNote: (context: GC) => Effect.all({
+    videoNote: (context: Types.Context) => Effect.all({
       user: connection.getCompanion(context),
       file: Effect.promise(() => context.getFile())
     }).pipe(
@@ -101,12 +120,12 @@ export const Forwarding = Effect.gen(function*(_) {
       )
     ).pipe(
       Effect.catchTags({
-        "ForbiddenError": () => lockout(context)
+        "ForbiddenError": () => disconnectOfForbidden(context)
       }),
       Effect.runPromise
     ),
 
-    sticker: (context: GC) => Effect.all({
+    sticker: (context: Types.Context) => Effect.all({
       user: connection.getCompanion(context),
       file: Effect.promise(() => context.getFile())
     }).pipe(
@@ -122,12 +141,12 @@ export const Forwarding = Effect.gen(function*(_) {
       )
     ).pipe(
       Effect.catchTags({
-        "ForbiddenError": () => lockout(context)
+        "ForbiddenError": () => disconnectOfForbidden(context)
       }),
       Effect.runPromise
     ),
 
-    voice: (context: GC) => Effect.all({
+    voice: (context: Types.Context) => Effect.all({
       user: connection.getCompanion(context),
       file: Effect.promise(() => context.getFile())
     }).pipe(
@@ -143,7 +162,7 @@ export const Forwarding = Effect.gen(function*(_) {
       )
     ).pipe(
       Effect.catchTags({
-        "ForbiddenError": () => lockout(context)
+        "ForbiddenError": () => disconnectOfForbidden(context)
       }),
       Effect.runPromise
     ),
@@ -151,14 +170,14 @@ export const Forwarding = Effect.gen(function*(_) {
 })
 
 
-export const toStopConvection = (context: GC) => Effect.gen(function*() {
+export const toStopConvection = (context: Types.Context) => Effect.gen(function*() {
   const { disconnect } = yield* ConnectionService;
   yield* disconnect(context)
 }).pipe(
   Effect.provide(ConnectionServiceLive),
   Effect.runPromise,
 )
-export const toStopConvectionIsNot = async (context: GC) =>
+export const toStopConvectionIsNot = async (context: Types.Context) =>
   safeReply(context, "Для начала нужно найти собеседника", { reply_markup: MainMenu })
     .pipe(
       Effect.catchTags({

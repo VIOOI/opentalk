@@ -1,6 +1,6 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { User } from "../../Schemas/User.js";
 
-import { User } from "../Models/User.model.js";
 
 export const UserTable = sqliteTable('users', {
   id: text('id').primaryKey(),

@@ -1,8 +1,8 @@
 import { Schema } from "@effect/schema";
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
 import { Array, String } from "effect";
-import { UserSchema } from "./User.model.js";
 import * as uuid from 'uuid';
+import { UserSchema } from "./User.js";
 
 export const AdsSchema = Schema.Struct({
   id: Schema.String,

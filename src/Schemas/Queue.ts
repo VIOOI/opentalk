@@ -1,6 +1,6 @@
 
 import { Schema } from "@effect/schema";
-import { UserSchema } from "./User.model.js";
+import { UserSchema } from "./User.js";
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
 import { Array, String } from "effect";
 

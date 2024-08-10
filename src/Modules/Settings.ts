@@ -3,11 +3,11 @@ import { eq } from "drizzle-orm";
 import { Effect, Record } from "effect";
 import { Drizzle } from "../Databases/Drizzle.js";
 import { Redis } from "../Databases/Redis.js";
-import { UserTable } from "../Databases/User.table.js";
-import { User } from "../Models/User.model.js";
-import { UserService, UserServiceLive } from "../Service/User.service.js";
-import { GC, GConversation } from "../types.js";
 import { safeReply } from "../Shared/safeSend.js";
+import { User } from "../Schemas/User.js";
+import * as Types from "../Types.js"
+import { UserService, UserServiceLive } from "../Services/Users.js";
+import { UserTable } from "../Databases/Tables/User.js";
 
 const defaultText = "Выберите настройки, которые вы хотели бы поменять:"
 
@@ -40,7 +40,7 @@ ${self.tags.join(" ")}
 
 Введите новые теги, чтобы изменить их:`;
 
-export const BackAgeMenu = new Menu<GC>("back-menu").back("← назад", async (context) => {
+export const BackAgeMenu = new Menu<Types.Context>("back-menu").back("← назад", async (context) => {
   context.editMessageText(defaultText);
 
   await Effect.runPromise(
@@ -53,7 +53,7 @@ export const BackAgeMenu = new Menu<GC>("back-menu").back("← назад", asyn
   )
 });
 
-const effectSetGender = (gender: User["gender"]) => (context: GC & MenuFlavor) => Effect.gen(function*(_) {
+const effectSetGender = (gender: User["gender"]) => (context: Types.Context & MenuFlavor) => Effect.gen(function*(_) {
   const user = yield* _(
     UserService,
     Effect.andThen((service) => service.getSelf(context))
@@ -71,7 +71,7 @@ const effectSetGender = (gender: User["gender"]) => (context: GC & MenuFlavor) =
   Effect.runPromise
 )
 
-export const SetGenderMenu = new Menu<GC>("set-gender-menu")
+export const SetGenderMenu = new Menu<Types.Context>("set-gender-menu")
   .text("Мужской 👨", effectSetGender("men"))
   .text("Женский 👩", effectSetGender("women")).row()
   .text("Удалить ❌", effectSetGender("any")).row()
@@ -79,7 +79,7 @@ export const SetGenderMenu = new Menu<GC>("set-gender-menu")
 
 
 const effectSetSetting = (print: ((self: User) => string), conversation: string, menu: string = "back-menu") =>
-  (context: GC & MenuFlavor) => Effect.gen(function*(_) {
+  (context: Types.Context & MenuFlavor) => Effect.gen(function*(_) {
     const user = yield* _(
       UserService,
       Effect.andThen((service) => service.getSelf(context))
@@ -93,7 +93,7 @@ const effectSetSetting = (print: ((self: User) => string), conversation: string,
     Effect.runPromise
   )
 
-export const SettingsMenu = new Menu<GC>("settings-menu")
+export const SettingsMenu = new Menu<Types.Context>("settings-menu")
   .text("Имя", effectSetSetting(textToName, "settingsName"))
   .text("Пол", async (context) => Effect.gen(function*(_) {
     const user = yield* _(
@@ -115,7 +115,7 @@ SettingsMenu.register(BackAgeMenu);
 SettingsMenu.register(SetGenderMenu);
 
 
-const fabricSettings = (key: keyof User, response: string) => (conv: GConversation, context: GC) => Effect.gen(function*(_) {
+const fabricSettings = (key: keyof User, response: string) => (conv: Types.Conversation, context: Types.Context) => Effect.gen(function*(_) {
   const user = yield* _(
     UserService,
     Effect.andThen(service => service.getSelf(context))
@@ -137,7 +137,7 @@ const fabricSettings = (key: keyof User, response: string) => (conv: GConversati
 export const Settings = {
   Name: fabricSettings("name", "Мы изменили ваше имя"),
   Age: fabricSettings("age", "Мы изменили ваш возраст"),
-  Tags: (conv: GConversation, context: GC) => Effect.gen(function*(_) {
+  Tags: (conv: Types.Conversation, context: Types.Context) => Effect.gen(function*(_) {
   const user = yield* _(
     UserService,
     Effect.andThen(service => service.getSelf(context))
@@ -161,6 +161,6 @@ export const Settings = {
 
 
 
-export const toSettings = (context: GC) =>
+export const toSettings = (context: Types.Context) =>
   safeReply(context, "Выберите настройки, которые вы хотели бы поменять:", { reply_markup: SettingsMenu })
     .pipe(Effect.runPromise)

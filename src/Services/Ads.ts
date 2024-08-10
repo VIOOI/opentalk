@@ -1,8 +1,8 @@
 import { Array, Context, Data, Effect, Layer, Option, pipe } from "effect";
-import { User } from "../Models/User.model.js";
-import { Ads, DefaultPostAds, DefaultSmallAds, deserializeAds, serializeAds } from "../Models/Ads.model.js";
 import { Drizzle } from "../Databases/Drizzle.js";
-import { DrizzleAnyError } from "./Database.service.js";
+import { User } from "../Schemas/User.js";
+import { Ads, DefaultPostAds, DefaultSmallAds, deserializeAds } from "../Schemas/Ads.js";
+import { DrizzleAnyError } from "./Database.js";
 
 // class AdNotMatchedError extends Data.TaggedError("AdNotMatchedError") { }
 

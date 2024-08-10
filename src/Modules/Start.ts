@@ -4,18 +4,15 @@ import { Array, Console, Data, Effect, Either, Layer, Match, Number, Option, Str
 import { GenderKeyboard } from "../Keyboards/Gender.js";
 import { MainMenu } from "../Keyboards/Main.js";
 import { SkipKeyboard } from "../Keyboards/Skip.js";
-import { UserSchema } from "../Models/User.model.js";
-import { DatabaseService, DatabaseServiceLive } from "../Service/Database.service.js";
-import { UserService, UserServiceLive } from "../Service/User.service.js";
 import { sendMessageWaitOrSkip } from "../Shared/safeConversation.js";
-import { GC, GConversation } from "../types.js";
 import { safeReply } from "../Shared/safeSend.js";
+import * as Types from "../Types.js"
+import { UserService, UserServiceLive } from "../Services/Users.js";
 
 
-export const toStartNotAuth = (conversation: GConversation, context: GC) =>
+export const toStartNotAuth = (conversation: Types.Conversation, context: Types.Context) =>
   Effect.gen(function*(_) {
 
-    console.log(context.from);
     yield* safeReply(context, ` Для начала общения вы должны  зарегестрироваться.
 @opentalkru`)
 
@@ -63,7 +60,7 @@ export const toStartNotAuth = (conversation: GConversation, context: GC) =>
       ),
       Effect.map(
         Either.getOrElse(
-          Match.type<GC>().pipe(
+          Match.type<Types.Context>().pipe(
             Match.when({ message: { text: "Мужчина" } }, () => "men" as const),
             Match.when({ message: { text: "Женщина" } }, () => "women" as const),
             Match.orElse(() => "any" as const)
@@ -124,17 +121,18 @@ export const toStartNotAuth = (conversation: GConversation, context: GC) =>
       Effect.map(Array.map(String.toLowerCase))
     )
 
-    const Database = yield* DatabaseService;
+    const Users = yield* UserService;
 
     yield* _(
-      {
-        id: context.from!.username!,
-        chat: context.chatId!,
-        name, age, gender, description,
-        tags: Array.map(tags, String.toLowerCase),
-        raiting: { likes: 0, dislikes: 0 },
-      },
-      Database.addedUser,
+      Users.add(
+        {
+          id: context.from!.username!,
+          chat: context.chatId!,
+          name, age, gender, description,
+          tags: Array.map(tags, String.toLowerCase),
+          raiting: { likes: 0, dislikes: 0 },
+        },
+      ),
       Effect.andThen(
         (user) => safeReply(
           context,
@@ -145,14 +143,14 @@ export const toStartNotAuth = (conversation: GConversation, context: GC) =>
     )
 
   }).pipe(
-    Effect.provide(DatabaseServiceLive),
+    Effect.provide(UserServiceLive),
     Effect.catchTags({
       "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`)
     }),
     Effect.runPromise,
   )
 
-export const RToStartAuth = (context: GC) =>
+export const toStartAuth = (context: Types.Context) =>
   Effect.gen(function*() {
     const user = yield* UserService.pipe(
       Effect.andThen(User => User.getSelf(context))
@@ -169,23 +167,23 @@ export const RToStartAuth = (context: GC) =>
   )
 
 
-export const toStartInConnection = async (context: GC) => safeReply(
+export const toStartInConnection = async (context: Types.Context) => safeReply(
   context,
   "У вас есть собеседник, для начала закончите диалог с ним"
 ).pipe(
-    Effect.catchTags({
-      "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`)
-    }),
-    Effect.runPromise
-  );
+  Effect.catchTags({
+    "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`)
+  }),
+  Effect.runPromise
+);
 
-export const toStartInQueue = async (context: GC) => safeReply(
+export const toStartInQueue = async (context: Types.Context) => safeReply(
   context,
-  "Вы находитесь в поиске, для начала остановите поиск собеседника"
+  "Вы находитесь в поиске, для начала остановите поиск собеседника \stop"
 ).pipe(
-    Effect.catchTags({
-      "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`)
-    }),
-    Effect.runPromise
-  );
+  Effect.catchTags({
+    "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`)
+  }),
+  Effect.runPromise
+);
 

@@ -1,16 +1,14 @@
-import { Any } from "@effect/schema/Schema";
-import { Data, Effect, Either, Record } from "effect";
+import { Data, Effect, Either } from "effect";
 import { LazyArg } from "effect/Function";
 import { Message } from "grammy/types";
-import { GC } from "../types.js";
-import { Context } from "grammy";
+import * as Types from "../Types.js";
 import { ForbiddenError, UnknownMessageError } from "./safeSend.js";
 
 export class MessageError extends Data.TaggedError("MessageError") { }
 
 export const sendMessageWait = (
   self: LazyArg<Promise<Message.TextMessage>>,
-  that: LazyArg<Promise<GC>>
+  that: LazyArg<Promise<Types.Context>>
 ) =>
   Effect.gen(function*(_) {
     yield* _(Effect.tryPromise({
@@ -28,9 +26,9 @@ export const sendMessageWait = (
 
 export const sendMessageWaitOrSkip = <T>(
   self: LazyArg<Promise<Message.TextMessage>>,
-  that: LazyArg<Promise<GC>>,
+  that: LazyArg<Promise<Types.Context>>,
   orSkiper: LazyArg<Promise<T>>
-): Effect.Effect<Either.Either<T, GC>, MessageError, never> =>
+): Effect.Effect<Either.Either<T, Types.Context>, MessageError, never> =>
   Effect.gen(function*(_) {
     yield* _(Effect.promise(self))
     const response = yield* _(Effect.promise(that))
@@ -39,12 +37,3 @@ export const sendMessageWaitOrSkip = <T>(
     return Either.left(response);
   })
 
-// const stopAllConversion = (context: GC) => Effect.runPromise(
-//   Effect.promise(() => context.conversation.active())
-//     .pipe(
-//       Effect.andThen((conv) => Effect.all(
-//         Record.keys(conv)
-//           .map(conv => Effect.promise(() => context.conversation.exit(conv)))
-//       ))
-//     )
-// )

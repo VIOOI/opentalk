@@ -50,6 +50,7 @@ export type User = Schema.Schema.Type<typeof UserSchema>;
 
 export const deserializeUser = Schema.decodeUnknownSync(UserSchema);
 export const serializeUser = Schema.encodeUnknownSync(UserSchema);
+// export const validateUser = Schema.validateSync(UserSchema);
 
 
 export const seedUser = Ref.make<User>({

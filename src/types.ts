@@ -1,21 +1,23 @@
 import { Effect, Option, Ref } from "effect";
-import { Context, SessionFlavor } from "grammy";
-import { Conversation, ConversationFlavor } from "@grammyjs/conversations";
+import { Context as GContext, SessionFlavor } from "grammy";
+import { Conversation as GConversation, ConversationFlavor } from "@grammyjs/conversations";
 import { ParseModeFlavor } from "@grammyjs/parse-mode";
-import { User } from "./Models/User.model.js";
+// import { User } from "./Schemas/User.js";
 
 
 
 export type SessionData = {
-  self: Ref.Ref<User>,
-  lastGender: number | null,
-  // conversation: Record<string, unknown>,
+  // self: Ref.Ref<User>,
+  search: "men" | "women" | "any"
+  history: Array<{ self: string, that: string }>
+  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  conversation?: Record<string, any>
 
 }
 
-export type GC = Context &
+export type Context = GContext &
   SessionFlavor<SessionData> &
   ConversationFlavor &
-  ParseModeFlavor<Context>;
+  ParseModeFlavor<GContext>;
 
-export type GConversation = Conversation<GC>;
+export type Conversation = GConversation<Context>;
