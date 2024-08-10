@@ -1,6 +1,6 @@
 import { Menu, MenuFlavor } from "@grammyjs/menu";
 import { eq } from "drizzle-orm";
-import { Effect, Record } from "effect";
+import { Array, Effect, Option, Record } from "effect";
 import { Drizzle } from "../Databases/Drizzle.js";
 import { Redis } from "../Databases/Redis.js";
 import { safeReply } from "../Shared/safeSend.js";
@@ -59,9 +59,14 @@ const effectSetGender = (gender: User["gender"]) => (context: Types.Context & Me
     Effect.andThen((service) => service.getSelf(context))
   );
   yield* Effect.promise(async () => {
-    const [newUser] = await Drizzle.update(UserTable).set({ gender }).where(eq(UserTable.id, user.id)).returning();
-    await Redis.hset(`user:${user.id}`, newUser!)
-    await Redis.expire(`user:${user.id}`, 24 * 60 * 60)
+    const users = await Drizzle.update(UserTable).set({ gender }).where(eq(UserTable.id, user.id)).returning();
+
+    const result = Array.get(users, 0)
+    if (Option.isSome(result)) {
+      await Redis.hset(`user:${user.id}`, result.value)
+      await Redis.expire(`user:${user.id}`, 24 * 60 * 60)
+    }
+
   })
   yield* Effect.promise(() => context.editMessageText(defaultText));
   context.menu.back();
@@ -138,23 +143,23 @@ export const Settings = {
   Name: fabricSettings("name", "Мы изменили ваше имя"),
   Age: fabricSettings("age", "Мы изменили ваш возраст"),
   Tags: (conv: Types.Conversation, context: Types.Context) => Effect.gen(function*(_) {
-  const user = yield* _(
-    UserService,
-    Effect.andThen(service => service.getSelf(context))
-  )
-  yield* _(
-    Effect.promise(() => conv.waitFor(":text")),
-    Effect.andThen(({ message }) => Effect.promise(async () => {
-      const [newUser] = await Drizzle.update(UserTable).set({ tags: message!.text!.toLowerCase() }).where(eq(UserTable.id, user.id)).returning();
-      await Redis.hset(`user:${user.id}`, newUser!)
-      await Redis.expire(`user:${user.id}`, 24 * 60 * 60)
-    }))
-  )
-  yield* safeReply(context, "Мы изменили ваши теги")
-}).pipe(
-  Effect.provide(UserServiceLive),
-  Effect.runPromise
-),
+    const user = yield* _(
+      UserService,
+      Effect.andThen(service => service.getSelf(context))
+    )
+    yield* _(
+      Effect.promise(() => conv.waitFor(":text")),
+      Effect.andThen(({ message }) => Effect.promise(async () => {
+        const [newUser] = await Drizzle.update(UserTable).set({ tags: message!.text!.toLowerCase() }).where(eq(UserTable.id, user.id)).returning();
+        await Redis.hset(`user:${user.id}`, newUser!)
+        await Redis.expire(`user:${user.id}`, 24 * 60 * 60)
+      }))
+    )
+    yield* safeReply(context, "Мы изменили ваши теги")
+  }).pipe(
+    Effect.provide(UserServiceLive),
+    Effect.runPromise
+  ),
   Description: fabricSettings("description", "Мы изменили ваше описание"),
   // Gender: fabricSettings("gender", "Мы изменили ваш пол")
 }
