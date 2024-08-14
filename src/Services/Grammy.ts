@@ -1,6 +1,11 @@
-import { Config as Conf, Context, Effect, Layer, Record } from "effect"
+import { Config as Conf, Context, Effect, HashMap, Layer, Record } from "effect"
 import { Bot, session } from "grammy"
 import * as Types from "../Types.js"
+import { TagsKeyboard } from "../Keyboards/TagsKeyboard.js";
+import { conversations, createConversation } from "@grammyjs/conversations";
+import { toStartNotAuth } from "../Modules/Start.js";
+import { Settings, SettingsMenu } from "../Modules/Settings.js";
+// import { SettingsMenu } from "../Modules/Settings.js";
 
 export class Grammy extends Context.Tag("@app/Grammy")<
   Grammy,
@@ -32,9 +37,24 @@ export const Config = Layer.effectDiscard(
     grammy.use(session({
       type: "multi",
       search: { initial: () => "any" },
-      history: { initial: () => Record.empty<string, string>() },
+      categories: { initial: () => ["Общение"] },
+      history: { initial: () => HashMap.empty<string, string>() },
+      status: { initial: () => "unauth" },
       conversation: { initial: () => ({}) }, // may be left empty
     }))
+
+    grammy.use(conversations())
+
+
+    grammy.use(createConversation(Settings.Name, "settingsName"))
+    grammy.use(createConversation(Settings.Age, "settingsAge"))
+    grammy.use(createConversation(Settings.Tags, "settingsTags"))
+    grammy.use(createConversation(Settings.Description, "settingsDescription"))
+    grammy.use(createConversation(toStartNotAuth));
+
+    grammy.use(SettingsMenu)
+    grammy.use(TagsKeyboard)
+    // grammy.use(SettingsMenu)
 
 
 

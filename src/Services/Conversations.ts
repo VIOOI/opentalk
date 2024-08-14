@@ -9,16 +9,5 @@ export const Conversation = Layer.effectDiscard(
     const grammy = yield* Grammy;
     console.log("Conversation");
 
-    grammy.use(conversations())
-
-
-    grammy.use(createConversation(Settings.Name, "settingsName"))
-    grammy.use(createConversation(Settings.Age, "settingsAge"))
-    grammy.use(createConversation(Settings.Tags, "settingsTags"))
-    grammy.use(createConversation(Settings.Description, "settingsDescription"))
-    grammy.use(createConversation(toStartNotAuth));
-
-    grammy.use(SettingsMenu)
-
   })
 )

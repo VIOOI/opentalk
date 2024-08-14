@@ -3,11 +3,13 @@ import { isNotNull } from "effect/Predicate";
 import { Redis } from "../Databases/Redis.js";
 import * as Types from "../Types.js";
 import { AdsService, AdsServiceLive } from "./Ads.js";
-import { UserNotFoundError } from "./Database.js";
-import { UserService, UserServiceLive } from "./Users.js";
-import { User } from "../Schemas/User.js";
+// import { DrizzleAnyError, UserNotFoundError } from "./Database.js";
+import { UserNotFoundError, UserService, UserServiceLive } from "./User.js";
 import { Queue } from "../Schemas/Queue.js";
 import { connectMessage, disconnectMessage } from "./Connection.helpers.js";
+// import { user } from "../Databases/Tables/User.js";
+import { User } from "../Schemas/User.js";
+import { QueueServiceLive } from "./Queue.js";
 
 class UserIsNotConnection extends Data.TaggedError("UserIsNotConnection") { }
 
@@ -27,7 +29,7 @@ export const ConnectionServiceLive = Layer.effect(
     const User = yield* UserService;
     return {
       connect: (context: Types.Context, self: Queue, that: Queue) => Effect.all({
-        that: User.getById(that.id),
+        that: User.getById(that.username),
         self: User.getSelf(context)
       }, { concurrency: "unbounded" }).pipe(
         Effect.andThen(
@@ -37,13 +39,13 @@ export const ConnectionServiceLive = Layer.effect(
           ], { concurrency: "unbounded" })
         ),
         Effect.catchTags({
-          "ForbiddenError": () => Console.log(self, that),
           "UnknownMessageError": () => Console.log(self, that)
         }),
         Effect.asVoid,
         Effect.provide(AdsServiceLive),
+        Effect.provide(QueueServiceLive),
       ),
-      
+
       getCompanion: (context: Types.Context) => Effect.promise(
         () => Redis.get(`connect:${context.from!.username!}`)
       ).pipe(
@@ -66,14 +68,14 @@ export const ConnectionServiceLive = Layer.effect(
           )
         }, { concurrency: "unbounded" })
 
-        const disconnectAll = (self: User, that: User) => Effect.gen(function*(_) {
-          yield* Effect.promise(() => Redis.del(`connect:${self.id}`))
-          yield* Effect.promise(() => Redis.del(`connect:${that.id}`))
-        })
+        const disconnects = (...user: User[]) => Effect.forEach(user, (self) => 
+          Effect.promise(() => Redis.del(`connect:${self.username}`)),
+          { concurrency: "unbounded" }
+        )
 
 
         yield* Effect.all([
-          disconnectAll(users.self, users.that),
+          disconnects(users.self, users.that),
           disconnectMessage(self, users.self, users.that, true),
           disconnectMessage(self, users.that, users.self, false),
         ], { concurrency: "unbounded" })
