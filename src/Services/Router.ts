@@ -42,22 +42,22 @@ const RouterLive = Layer.effect(
     const queue = yield* QueueService;
     const connection = yield* ConnectionService;
 
-      const statusSetAndGetFabric = (context: Types.Context) => (status: Types.Context["session"]["status"]) => {
-        context.session.status = status;
-        return status;
-      }
+    const statusSetAndGetFabric = (context: Types.Context) => (status: Types.Context["session"]["status"]) => {
+      context.session.status = status;
+      return status;
+    }
 
     const router = new GRouter<Types.Context>(async (context) => Effect.gen(function*() {
       if (context.from!.username === undefined) return "nousername"
       const self = yield* Effect.either(users.getSelf(context));
-      
+
       const statusSetAndGet = statusSetAndGetFabric(context);
 
       if (Either.isLeft(self)) return statusSetAndGet("unauth")
-      if (yield* queue.isInQueue(context))  return statusSetAndGet("insearch")
+      if (yield* queue.isInQueue(context)) return statusSetAndGet("insearch")
       if (yield* connection.isInConnection(context)) return statusSetAndGet("inconnection")
       return statusSetAndGet("auth");
-      
+
     }).pipe(
       Effect.runPromise,
     ))
@@ -107,6 +107,14 @@ export const Routing = Layer.effectDiscard(
     ofAuth.hears("Настройки ⚙️", Settings.toSettings)
     ofAuth.hears("*", Chat.toStopConvectionIsNot)
     ofAuth.callbackQuery(/^rate_(.*)_(up|down)$/, toRaiting)
+    ofAuth
+      .filter(context =>
+        context.from?.username === "nameviooi"
+        || context.from?.username === "Vl00l"
+      )
+      .command("ads", async (context) => {
+        await context.conversation.enter("addedAds")
+      })
     //
     ofSearch.command("start", Start.toStartInQueue)
     ofSearch.command("stop", Search.toStopSearching)
@@ -131,6 +139,9 @@ export const Routing = Layer.effectDiscard(
     ofConnect.on(":video_note", forwarding.videoNote)
     ofConnect.on(":sticker", forwarding.sticker)
     ofConnect.on(":voice", forwarding.voice)
+    ofAuth.on(":forward_origin", (context) => {
+      console.log(context.message)
+    })
     ofConnect.on("edit:text", (context) => Effect.gen(function*(_) {
       const connection = yield* ConnectionService;
       const companion = yield* connection.getCompanion(context);

@@ -10,7 +10,7 @@ import { User, deserializeUser, parseUser, serializePartialUser, serializeUser }
 import * as Types from "../Types.js"
 import { users } from "../Databases/Tables/User.js"
 import { Schema } from "@effect/schema"
-import { isNotUndefined } from "effect/Predicate"
+import { isNotNull, isNotUndefined } from "effect/Predicate"
 
 export class UserAlreadyExistsError extends Data.TaggedError("UserAlreadyExistsError") { }
 export class UserNotFoundError extends Data.TaggedError("UserNotFoundError") { }
@@ -75,28 +75,29 @@ export const UserServiceLive = Layer.succeed(
       Effect.tap(cahedUser)
     ),
 
-    getSelf: (self: Types.Context) => Effect.tryPromise({
-      try: () => Drizzle.query.users.findFirst({
-        where: (user, { eq }) => eq(user.username, self.from!.username!)
-      }),
-      catch: () => new UserNotFoundError(),
-    }).pipe(
-      Effect.filterOrFail(
-        isNotUndefined,
-        () => new UserNotFoundError()
-      ),
-      Effect.tap(Console.log),
-      Effect.map(deserializeUser),
-      Effect.tap(cahedUser)
-    ),
+    getSelf(self: Types.Context) {
+      return this.getById(self.from!.username!)
+    },
 
     getById: (self: User["username"]) => Effect.tryPromise({
-      try: () => Drizzle.query.users.findFirst({
-        where: (user, { eq }) => eq(user.username, self)
-      }),
-      catch: () => new UserNotFoundError(),
+      try: () => Redis.get(`user:${self}`),
+      catch: () => new Error(),
     }).pipe(
-      Effect.map(deserializeUser),
+      Effect.filterOrFail( isNotNull, () => new Error())
+    ).pipe(
+      Effect.matchEffect({
+        onFailure: () => Effect.tryPromise({
+          try: () => Drizzle.query.users.findFirst({
+            where: (user, { eq }) => eq(user.username, self)
+          }),
+          catch: () => new UserNotFoundError(),
+        }).pipe(
+          Effect.filterOrFail( isNotUndefined, () => new UserNotFoundError()),
+          Effect.map(deserializeUser),
+          Effect.tap(cahedUser)
+        ),
+        onSuccess: (user) => Effect.succeed(deserializeUser(user)),
+      }),
     )
 
   })

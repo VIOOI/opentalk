@@ -93,7 +93,7 @@ const effectSetSetting = (print: ((self: User) => string), conversation: string,
       Effect.andThen((service) => service.getSelf(context))
     );
     yield* Effect.promise(() => context.editMessageText(print(user)));
-    yield* Effect.promise(() => context.conversation.enter(conversation)); // BUG: TypeError: Cannot read properties of undefined (reading 'enter')
+    yield* Effect.promise(() => context.conversation.enter(conversation));
     context.menu.nav(menu);
 
   }).pipe(

@@ -122,8 +122,11 @@ export const AdsServiceLive = Layer.succeed(
         );
         if (matchedAds.type === "large") yield* safeSendMessage(ctx, self.chat, matchedAds.content);
         else {
-          const [chatid, messageid] = matchedAds.content.split(" ")
-          ctx.api.forwardMessage(self.chat, chatid!, Number(messageid!))
+          const [fromChatId, messageId] = matchedAds.content
+            .split(" ")
+            .map(h => Number(h))
+          
+          ctx.api.forwardMessage(Number(self.chat), fromChatId!, messageId!)
         }
       }).pipe(
         Effect.catchAll(() => Effect.succeed(DefaultPostAds))

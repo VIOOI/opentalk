@@ -59,11 +59,6 @@ export const Forwarding = Effect.gen(function*(_) {
       Effect.andThen(({ self, that }) => Effect.sync(
         () => context.session.history = HashMap.set(context.session.history, self.message_id.toString(), that.message_id.toString()))
       ),
-      // Effect.andThen(({ self, that }) => Effect.sync(() => context.session.history.push({
-      //   self: self.message_id.toString(),
-      //   that: that.message_id.toString()
-      // }))),
-      Effect.andThen(() => Console.log(context.from?.username, context.session.history))
     ).pipe(
       Effect.catchTags({
         "ForbiddenError": () => disconnectOfForbidden(context)
