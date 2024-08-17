@@ -1,8 +1,8 @@
 import { Router as GRouter } from "@grammyjs/router"
-import { Effect, Layer, Option, Record } from "effect"
+import { Console, Context, Effect, Either, HashMap, Layer, Option, Record } from "effect"
 import { Grammy } from "./Grammy.js";
 import * as Types from "../Types.js"
-import { UserService, UserServiceLive } from "./Users.js";
+import { UserService, UserServiceLive } from "./User.js";
 import { QueueService, QueueServiceLive } from "./Queue.js";
 import { ConnectionService, ConnectionServiceLive } from "./Connection.js";
 import { safeReply } from "../Shared/safeSend.js";
@@ -10,8 +10,9 @@ import * as Search from "../Modules/Search.js";
 import * as Start from "../Modules/Start.js";
 import * as Chat from "../Modules/Chat.js";
 import * as Settings from "../Modules/Settings.js";
-import { toRaiting } from "../Keyboards/Raiting.js";
 import { Forwarding } from "../Modules/Chat.js";
+import { Composer } from "grammy";
+import { toRaiting } from "../Keyboards/RaitingKeyboard.js";
 
 const stopAllConversation = (context: Types.Context) => Effect.runPromise(
   Effect.promise(() => context.conversation.active()).pipe(
@@ -22,89 +23,129 @@ const stopAllConversation = (context: Types.Context) => Effect.runPromise(
   )
 )
 
-const Routing = (context: Types.Context) => Effect.gen(function*() {
-  const user = yield* UserService;
-  const queue = yield* QueueService;
-  const connection = yield* ConnectionService;
+class Router extends Context.Tag("Routing")<
+  Router,
+  {
+    self: GRouter<Types.Context>,
+    ofAuth: Composer<Types.Context>,
+    ofUnAuth: Composer<Types.Context>,
+    ofSearch: Composer<Types.Context>,
+    ofConnect: Composer<Types.Context>,
+    ofNoUsername: Composer<Types.Context>,
+  }
+>() { }
 
-  if (context.from!.username === undefined) return "routerIsNotUsername"
+const RouterLive = Layer.effect(
+  Router,
+  Effect.gen(function*() {
+    const users = yield* UserService;
+    const queue = yield* QueueService;
+    const connection = yield* ConnectionService;
 
-  yield* user.getSelf(context);
+    const statusSetAndGetFabric = (context: Types.Context) => (status: Types.Context["session"]["status"]) => {
+      context.session.status = status;
+      return status;
+    }
 
-  if (yield* queue.isInQueue(context)) return "routerInQueue"
-  if (yield* connection.isInConnection(context)) return "routerInConnection"
+    const router = new GRouter<Types.Context>(async (context) => Effect.gen(function*() {
+      if (context.from!.username === undefined) return "nousername"
+      const self = yield* Effect.either(users.getSelf(context));
 
-  return "routerAuth"
-}).pipe(
-  Effect.catchTag("UserNotFoundError", () => Effect.succeed("routerUnAuth")),
-  Effect.catchTag("RedisAnyError", () => Effect.succeed("routerUnAuth")),
-  Effect.provide(QueueServiceLive),
-  Effect.provide(UserServiceLive),
-  Effect.provide(ConnectionServiceLive),
+      const statusSetAndGet = statusSetAndGetFabric(context);
+
+      if (Either.isLeft(self)) return statusSetAndGet("unauth")
+      if (yield* queue.isInQueue(context)) return statusSetAndGet("insearch")
+      if (yield* connection.isInConnection(context)) return statusSetAndGet("inconnection")
+      return statusSetAndGet("auth");
+
+    }).pipe(
+      Effect.runPromise,
+    ))
+
+    return {
+      self: router,
+      ofAuth: router.route("auth"),
+      ofUnAuth: router.route("unauth"),
+      ofSearch: router.route("insearch"),
+      ofConnect: router.route("inconnection"),
+      ofNoUsername: router.route("nousername")
+    }
+  })
 )
 
-const fabricRouting = (router: GRouter<Types.Context>) => ({
-  Auth: router.route("routerAuth"),
-  UnAuth: router.route("routerUnAuth"),
-  InQueue: router.route("routerInQueue"),
-  InConnection: router.route("routerInConnection"),
-  IsNotUsername: router.route("routerIsNotUsername"),
-})
-
-export const Router = Layer.effectDiscard(
+export const Routing = Layer.effectDiscard(
   Effect.gen(function*(_) {
     const grammy = yield* Grammy;
+    const { ofAuth, ofUnAuth, ofSearch, ofConnect, ofNoUsername, self } = yield* Router;
     console.log("Router");
 
-    const router = new GRouter<Types.Context>(context => Effect.runPromise(Routing(context)))
 
-    const { Auth, IsNotUsername, UnAuth, InQueue, InConnection } = fabricRouting(router);
+    ofNoUsername.hears("*", (context) => { safeReply(context, "Простите, но для использования этого бота, вам нужно настроить username!") })
 
-    IsNotUsername.hears("*", (context) => { safeReply(context, "Простите, но для использования этого бота, вам нужно настроить username!") })
+    ofUnAuth.command("start", async (context) => {
+      await stopAllConversation(context);
+      console.log("command:start:ofUnAuth");
 
-    UnAuth.command("start", async (context) => { await stopAllConversation(context); await context.conversation.enter("toStartNotAuth"); })
-    UnAuth.on("message", Search.toSearchNotAut)
+      await context.conversation.enter("toStartNotAuth");
+    })
+    ofUnAuth.on("message", Search.toSearchNotAut)
 
-    Auth.command("start", async (context) => { await stopAllConversation(context); await Start.toStartAuth(context); })
-    Auth.command("stop", Chat.toStopConvectionIsNot)
-    Auth.command("next", Search.toNextSearch)
-    Auth.command("test", Settings.toSettings)
-    Auth.hears("Найти 👩", Search.toSearch("women"));
-    Auth.hears("Найти 👨", Search.toSearch("men"));
-    Auth.hears("Найти 👽", Search.toSearch("any"));
-    Auth.hears("Прекратить поиск ❌", Search.toStopSearchingIsNot);
-    Auth.hears("Завершить ❌", Chat.toStopConvectionIsNot)
-    Auth.hears("Настройки ⚙️", Settings.toSettings)
-    Auth.hears("*", Chat.toStopConvectionIsNot)
-    Auth.callbackQuery(/^rate_(.*)_(up|down)$/, toRaiting)
+    ofAuth.command("start", async (context) => {
+      await stopAllConversation(context);
+      console.log("command:start:ofAuth");
 
-    InQueue.command("start", Start.toStartInQueue)
-    InQueue.command("stop", Search.toStopSearching)
-    InQueue.command("next", Search.toSearchInQueue)
-    InQueue.hears(["Найти 👩", "Найти 👨", "Найти 👽"], Search.toSearchInQueue)
-    InQueue.hears("Прекратить поиск ❌", Search.toStopSearching);
-    InQueue.hears("*", Search.toSearchInQueue)
-
-    InConnection.command("start", Start.toStartInConnection)
-    InConnection.hears(["Найти 👩", "Найти 👨", "Найти 👽"], Search.toSearchInConnection)
-    InConnection.hears("Прекратить поиск ❌", Search.toStopSearching);
-    InConnection.hears("Завершить ❌", Chat.toStopConvection)
-    InConnection.command("stop", Chat.toStopConvection)
-    InConnection.hears("Следующий ➡️", Search.toNextSearch)
-    InConnection.command("next", Search.toNextSearch)
+      await Start.toStartAuth(context);
+    })
+    ofAuth.command("stop", Chat.toStopConvectionIsNot)
+    ofAuth.command("next", Search.toNextSearch)
+    ofAuth.command("settings", Settings.toSettings)
+    ofAuth.hears("Найти 👩", Search.toSearch("women"));
+    ofAuth.hears("Найти 👨", Search.toSearch("men"));
+    ofAuth.hears("Найти 👽", Search.toSearch("any"));
+    ofAuth.hears("Прекратить поиск ❌", Search.toStopSearching);
+    ofAuth.hears("Завершить ❌", Chat.toStopConvectionIsNot)
+    ofAuth.hears("Настройки ⚙️", Settings.toSettings)
+    ofAuth.hears("*", Chat.toStopConvectionIsNot)
+    ofAuth.callbackQuery(/^rate_(.*)_(up|down)$/, toRaiting)
+    ofAuth
+      .filter(context =>
+        context.from?.username === "nameviooi"
+        || context.from?.username === "Vl00l"
+      )
+      .command("ads", async (context) => {
+        await context.conversation.enter("addedAds")
+      })
+    //
+    ofSearch.command("start", Start.toStartInQueue)
+    ofSearch.command("stop", Search.toStopSearching)
+    ofSearch.command("next", Search.toSearchInQueue)
+    ofSearch.hears(["Найти 👩", "Найти 👨", "Найти 👽"], Search.toSearchInQueue)
+    ofSearch.hears("Прекратить поиск ❌", Search.toStopSearching);
+    ofSearch.hears("*", Search.toSearchInQueue)
+    //
+    ofConnect.command("start", Start.toStartInConnection)
+    ofConnect.hears(["Найти 👩", "Найти 👨", "Найти 👽"], Search.toSearchInConnection)
+    ofConnect.hears("Прекратить поиск ❌", Search.toStopSearching);
+    ofConnect.hears("Завершить ❌", Chat.toStopConvection)
+    ofConnect.command("stop", Chat.toStopConvection)
+    ofConnect.hears("Следующий ➡️", Search.toNextSearch)
+    ofConnect.command("next", Search.toNextSearch)
 
     const forwarding = yield* Forwarding;
 
-    InConnection.on(":text", forwarding.textMessage)
-    InConnection.on(":photo", forwarding.photo)
-    InConnection.on(":video", forwarding.video)
-    InConnection.on(":video_note", forwarding.videoNote)
-    InConnection.on(":sticker", forwarding.sticker)
-    InConnection.on(":voice", forwarding.voice)
-    InConnection.on("edit:text", (context) => Effect.gen(function*(_) {
+    ofConnect.on(":text", forwarding.textMessage)
+    ofConnect.on(":photo", forwarding.photo)
+    ofConnect.on(":video", forwarding.video)
+    ofConnect.on(":video_note", forwarding.videoNote)
+    ofConnect.on(":sticker", forwarding.sticker)
+    ofConnect.on(":voice", forwarding.voice)
+    ofAuth.on(":forward_origin", (context) => {
+      console.log(context.message)
+    })
+    ofConnect.on("edit:text", (context) => Effect.gen(function*(_) {
       const connection = yield* ConnectionService;
       const companion = yield* connection.getCompanion(context);
-      const message_id = Record.get(context.session.history, context.editedMessage!.message_id!.toString())
+      const message_id = HashMap.get(context.session.history, context.editedMessage!.message_id!.toString())
       if (Option.isSome(message_id))
         context.api.editMessageText(companion.chat, Number(message_id.value), context.editedMessage?.text!)
     }).pipe(
@@ -112,9 +153,10 @@ export const Router = Layer.effectDiscard(
       Effect.runPromise,
     ))
 
-    grammy.use(router);
+    grammy.use(self);
   })
 ).pipe(
-  Layer.provide(ConnectionServiceLive),
+  Layer.provide(RouterLive),
+  // Layer.provide(ConnectionServiceLive),
 )
 

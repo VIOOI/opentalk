@@ -1,20 +1,20 @@
 import { bold, fmt } from "@grammyjs/parse-mode";
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
 import { Array, Console, Data, Effect, Either, Layer, Match, Number, Option, String } from "effect";
-import { GenderKeyboard } from "../Keyboards/Gender.js";
-import { MainMenu } from "../Keyboards/Main.js";
-import { SkipKeyboard } from "../Keyboards/Skip.js";
+import { GenderKeyboard } from "../Keyboards/GenderKeyboard.js";
+import { MainMenu } from "../Keyboards/MainKeyboard.js";
+import { SkipKeyboard } from "../Keyboards/SkipKeyboard.js";
+import { UserService, UserServiceLive } from "../Services/User.js";
 import { sendMessageWaitOrSkip } from "../Shared/safeConversation.js";
 import { safeReply } from "../Shared/safeSend.js";
 import * as Types from "../Types.js"
-import { UserService, UserServiceLive } from "../Services/Users.js";
+import { TagsKeyboard } from "../Keyboards/TagsKeyboard.js";
 
 
 export const toStartNotAuth = (conversation: Types.Conversation, context: Types.Context) =>
   Effect.gen(function*(_) {
 
-    yield* safeReply(context, ` Для начала общения вы должны  зарегестрироваться.
-@opentalkru`)
+    yield* safeReply(context, `Для начала общения вы должны  зарегестрироваться. @opentalkru`)
 
 
     const name = yield* _(
@@ -61,8 +61,8 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
       Effect.map(
         Either.getOrElse(
           Match.type<Types.Context>().pipe(
-            Match.when({ message: { text: "Мужчина" } }, () => "men" as const),
-            Match.when({ message: { text: "Женщина" } }, () => "women" as const),
+            Match.when({ message: { text: "Мужчина 👨" } }, () => "men" as const),
+            Match.when({ message: { text: "Женщина 👩" } }, () => "women" as const),
             Match.orElse(() => "any" as const)
           )
         )
@@ -87,38 +87,32 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
 
     // class TagsIsEmptyError extends Data.TaggedError("TagsIsEmptyError") {}
     const tags = yield* _(
-      sendMessageWaitOrSkip<Array<string>>(
+      sendMessageWaitOrSkip<string>(
         () => context.reply(
-          `Введите теги, для поиска, по ним мы будем искать для вас собеседника и по ним будут искать вас. 
+          `Выберите интересы для поиска, по ним мы будем искать для вас собеседника и по ним будут искать вас. 
 
-‼️Внимание‼️
-Теги это *самая важная часть для нашего бота*, на их основе мы подбираем вам наиболее подходящего собеседника. 
-‼️*Без тегов мы не подберём вам собеседника*
+Так же вы можете написать теги для сужения поиска собеседника, чтобы мы общались с наиболее подходящим собеседником.
 
 Теги пишутся черезер пробел, например: Аниме игры фильмы`,
           {
-            reply_markup: { remove_keyboard: true },
+            reply_markup: TagsKeyboard,
             parse_mode: "Markdown"
           }
         ),
         () => conversation.waitFor("message:text"),
         async () => Effect.gen(function*(_) {
           yield* safeReply(context, "Хорошо мы оставим оставим их пустыми, вы всегда можете поменять его в настройках")
-          return Array.empty<string>();
+          return "";
         }).pipe(
-          Effect.catchTags({
-            "ForbiddenError": () => Effect.succeed(Array.empty<string>()),
-            "UnknownMessageError": () => Effect.succeed(Array.empty<string>())
-          }),
+          Effect.catchAll(() => Effect.succeed("")),
           Effect.runPromise,
         )
       ),
       Effect.map(
         Either.getOrElse(
-          left => String.split(left.message!.text!, " ")
+          left => left.message!.text!
         )
       ),
-      Effect.map(Array.map(String.toLowerCase))
     )
 
     const Users = yield* UserService;
@@ -126,11 +120,11 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
     yield* _(
       Users.add(
         {
-          id: context.from!.username!,
-          chat: context.chatId!,
+          username: context.from!.username!,
+          chat: context.chat!.id.toString(),
           name, age, gender, description,
-          tags: Array.map(tags, String.toLowerCase),
-          raiting: { likes: 0, dislikes: 0 },
+          tags: String.toLowerCase(tags),
+          rating: [0, 0],
         },
       ),
       Effect.andThen(
@@ -141,11 +135,12 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
         )
       )
     )
+    conversation.session.status = "auth";
 
   }).pipe(
     Effect.provide(UserServiceLive),
     Effect.catchTags({
-      "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`)
+      "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`),
     }),
     Effect.runPromise,
   )
@@ -161,7 +156,8 @@ export const toStartAuth = (context: Types.Context) =>
   }).pipe(
     Effect.provide(UserServiceLive),
     Effect.catchTags({
-      "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`)
+      "ForbiddenError": () => Console.log(`${context.from?.username} заблокировал бота`),
+      "UserNotFoundError": () => Console.error(`${context.from?.username} не найден`)
     }),
     Effect.runPromise,
   )

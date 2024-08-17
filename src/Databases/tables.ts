@@ -1,3 +1,3 @@
 
-export  { UserTable } from './Tables/User.js';
-export  { AdsTable } from "./Tables/Ads.js"
+export  { users } from './Tables/User.js';
+export  { ads } from "./Tables/Ads.js"

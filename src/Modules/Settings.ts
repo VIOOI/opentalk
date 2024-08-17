@@ -1,13 +1,14 @@
-import { Menu, MenuFlavor } from "@grammyjs/menu";
+import { Menu, MenuFlavor, MenuButton } from "@grammyjs/menu";
 import { eq } from "drizzle-orm";
 import { Array, Effect, Option, Record } from "effect";
-import { Drizzle } from "../Databases/Drizzle.js";
-import { Redis } from "../Databases/Redis.js";
 import { safeReply } from "../Shared/safeSend.js";
 import { User } from "../Schemas/User.js";
 import * as Types from "../Types.js"
-import { UserService, UserServiceLive } from "../Services/Users.js";
-import { UserTable } from "../Databases/Tables/User.js";
+import { UserService, UserServiceLive } from "../Services/User.js";
+import { users } from "../Databases/tables.js";
+import { TagsKeyboard } from "../Keyboards/TagsKeyboard.js";
+import { Drizzle } from "../Databases/Drizzle.js";
+import { Redis } from "../Databases/Redis.js";
 
 const defaultText = "Выберите настройки, которые вы хотели бы поменять:"
 
@@ -35,10 +36,12 @@ ${self.description}
 
 Введите новое описание чтобы изменить его:`;
 
-const textToTags = (self: User) => `Выши теги:
-${self.tags.join(" ")}
+const textToTags = (self: User) => `Выберите интересы для поиска, по ним мы будем искать для вас собеседника и по ним будут искать вас. 
 
-Введите новые теги, чтобы изменить их:`;
+Так же вы можете написать теги для сужения поиска собеседника, чтобы мы общались с наиболее подходящим собеседником.
+Выши теги: ${self.tags}
+
+Теги пишутся черезер пробел, например: Аниме игры фильмы`;
 
 export const BackAgeMenu = new Menu<Types.Context>("back-menu").back("← назад", async (context) => {
   context.editMessageText(defaultText);
@@ -59,12 +62,12 @@ const effectSetGender = (gender: User["gender"]) => (context: Types.Context & Me
     Effect.andThen((service) => service.getSelf(context))
   );
   yield* Effect.promise(async () => {
-    const users = await Drizzle.update(UserTable).set({ gender }).where(eq(UserTable.id, user.id)).returning();
+    const resultEdit = await Drizzle.update(users).set({ gender }).where(eq(users.username, user.username)).returning();
 
-    const result = Array.get(users, 0)
+    const result = Array.get(resultEdit, 0)
     if (Option.isSome(result)) {
-      await Redis.hset(`user:${user.id}`, result.value)
-      await Redis.expire(`user:${user.id}`, 24 * 60 * 60)
+      await Redis.hset(`user:${user.username}`, result.value)
+      await Redis.expire(`user:${user.username}`, 24 * 60 * 60)
     }
 
   })
@@ -113,10 +116,22 @@ export const SettingsMenu = new Menu<Types.Context>("settings-menu")
     Effect.runPromise
   )).row()
   .text("Возраст", effectSetSetting(textToAge, "settingsAge"))
-  .text("Теги", effectSetSetting(textToTags, "settingsTags")).row()
+  .text("Теги", effectSetSetting(textToTags, "settingsTags", "select-tags-keyboard")).row()
   .text("Описание", effectSetSetting(textToDescription, "settingsDescription"))
 
 SettingsMenu.register(BackAgeMenu);
+SettingsMenu.register(TagsKeyboard.back("← назад", async (context) => {
+  context.editMessageText(defaultText);
+
+  await Effect.runPromise(
+    Effect.promise(() => context.conversation.active()).pipe(
+      Effect.andThen((conv) => Effect.all(
+        Record.keys(conv)
+          .map(conv => Effect.promise(() => context.conversation.exit(conv)))
+      ))
+    )
+  )
+}));
 SettingsMenu.register(SetGenderMenu);
 
 
@@ -128,9 +143,9 @@ const fabricSettings = (key: keyof User, response: string) => (conv: Types.Conve
   yield* _(
     Effect.promise(() => conv.waitFor(":text")),
     Effect.andThen(({ message }) => Effect.promise(async () => {
-      const [newUser] = await Drizzle.update(UserTable).set({ [key]: message!.text! }).where(eq(UserTable.id, user.id)).returning();
-      await Redis.hset(`user:${user.id}`, newUser!)
-      await Redis.expire(`user:${user.id}`, 24 * 60 * 60)
+      const [newUser] = await Drizzle.update(users).set({ [key]: message!.text! }).where(eq(users.username, user.username)).returning();
+      await Redis.hset(`user:${user.username}`, newUser!)
+      await Redis.expire(`user:${user.username}`, 24 * 60 * 60)
     }))
   )
   yield* safeReply(context, response)
@@ -150,9 +165,9 @@ export const Settings = {
     yield* _(
       Effect.promise(() => conv.waitFor(":text")),
       Effect.andThen(({ message }) => Effect.promise(async () => {
-        const [newUser] = await Drizzle.update(UserTable).set({ tags: message!.text!.toLowerCase() }).where(eq(UserTable.id, user.id)).returning();
-        await Redis.hset(`user:${user.id}`, newUser!)
-        await Redis.expire(`user:${user.id}`, 24 * 60 * 60)
+        const [newUser] = await Drizzle.update(users).set({ tags: message!.text!.toLowerCase() }).where(eq(users.username, user.username)).returning();
+        await Redis.hset(`user:${user.username}`, newUser!)
+        await Redis.expire(`user:${user.username}`, 24 * 60 * 60)
       }))
     )
     yield* safeReply(context, "Мы изменили ваши теги")

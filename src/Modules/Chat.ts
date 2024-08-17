@@ -1,27 +1,32 @@
-import { Console, Effect, Random, Record } from "effect";
+import { Console, Effect, HashMap, Random, Record } from "effect";
 import * as Types from "../Types.js"
-import { MainMenu } from "../Keyboards/Main.js";
+import { MainMenu } from "../Keyboards/MainKeyboard.js";
 import { ForbiddenError, safeReply, safeSendMessage, UnknownMessageError } from "../Shared/safeSend.js";
 import { Redis } from "../Databases/Redis.js";
-import { RaitingInlineKeyboard } from "../Keyboards/Raiting.js";
+import { RaitingInlineKeyboard } from "../Keyboards/RaitingKeyboard.js";
 import { ConnectionService, ConnectionServiceLive } from "../Services/Connection.js";
-import { sendBigAds, sendInlineAgs } from "../Services/Connection.helpers.js";
-import { UserService, UserServiceLive } from "../Services/Users.js";
-import { AdsServiceLive } from "../Services/Ads.js";
+import { UserService, UserServiceLive } from "../Services/User.js";
+import { AdsService, AdsServiceLive } from "../Services/Ads.js";
 
 const disconnectOfForbidden = (context: Types.Context) => Effect.gen(function*(_) {
+  const ads = yield* AdsService;
+  const isBigAds = yield* ads.isBigAds;
+
+
   const that = yield* ConnectionService.pipe(Effect.andThen((service) => service.getCompanion(context)));
   const self = yield* UserService.pipe(Effect.andThen(service => service.getSelf(context)))
 
-  const isBigAds = yield* Random.nextRange(0, 10).pipe(Effect.map(n => n > 8));
+  const inlineAds = yield* ads.getInlineAds(self).pipe(
+    Effect.map(h => isBigAds ? ("\n\n" + h.content) : ""),
+  )
 
-  yield* Effect.promise(async () => Redis.del(`connect:${self.id}`, `connect:${that.id}`));
+  yield* Effect.promise(async () => Redis.del(`connect:${self.username}`, `connect:${that.username}`));
   yield* safeReply(
     context,
-    "Вас собеседник заблокировал бота, нам пришлось разорвать соединение" + !isBigAds ? ("\n\n" + (yield* sendInlineAgs(self)).content) : "",
+    "Вас собеседник заблокировал бота, нам пришлось разорвать соединение" + inlineAds,
     { reply_markup: MainMenu }
   )
-  yield* (isBigAds ? sendBigAds(context, self) : Effect.void);
+  yield* (isBigAds ? ads.sendBigAds(context, self) : Effect.void);
   yield* safeReply(context, "Если хотите, оставьте мнение о вашем собеседнике. Рейтинг сильно влияет на поиск", { reply_markup: RaitingInlineKeyboard(that) })
 
 }).pipe(
@@ -52,13 +57,8 @@ export const Forwarding = Effect.gen(function*(_) {
         })
       ),
       Effect.andThen(({ self, that }) => Effect.sync(
-        () => context.session.history = Record.set(context.session.history, self.message_id.toString(), that.message_id.toString()))
+        () => context.session.history = HashMap.set(context.session.history, self.message_id.toString(), that.message_id.toString()))
       ),
-      // Effect.andThen(({ self, that }) => Effect.sync(() => context.session.history.push({
-      //   self: self.message_id.toString(),
-      //   that: that.message_id.toString()
-      // }))),
-      Effect.andThen(() => Console.log(context.from?.username, context.session.history))
     ).pipe(
       Effect.catchTags({
         "ForbiddenError": () => disconnectOfForbidden(context)

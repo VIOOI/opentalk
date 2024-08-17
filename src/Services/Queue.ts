@@ -1,10 +1,28 @@
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
-import { Array, Console, Context, Data, Effect, Layer, Option, Order } from "effect";
+import {
+  Array,
+  Console,
+  Context,
+  Data,
+  Effect,
+  Layer,
+  Match,
+  Option,
+  Order,
+  pipe,
+} from "effect";
 import { Redis } from "../Databases/Redis.js";
 // import { User } from "../Models/User.model.js";
-import { Queue, deserializeQueue, serializeQueue } from "../Schemas/Queue.js";
-import { User } from "../Schemas/User.js";
+import {
+  Queue,
+  QueueSchema,
+  deserializeQueue,
+  parseQueue,
+  serializeQueue,
+  stringifyQueue,
+} from "../Schemas/Queue.js";
 import * as Types from "../Types.js";
+import { parseUser, User } from "../Schemas/User.js";
 
 class UserAlreadyInQueue extends Data.TaggedError("UserAlreadyInQueue") { }
 class UserIsNotQueue extends Data.TaggedError("UserIsNotQueue") { }
@@ -13,99 +31,162 @@ class RedisAnyError extends Data.TaggedError("RedisAnyError") { }
 export class QueueService extends Context.Tag("Queue")<
   QueueService,
   {
-    append: (self: Queue) => Effect.Effect<void, UserAlreadyInQueue | RedisAnyError>
-    removal: (self: Types.Context) => Effect.Effect<void, UserIsNotQueue | RedisAnyError>
-    findRightOne: (self: Queue) => Effect.Effect<Option.Option<Queue>>
-    make: (self: User, gender: User["gender"]) => Effect.Effect<Queue>
-    isInQueue: (self: Types.Context) => Effect.Effect<boolean, RedisAnyError>
+    add: (
+      self: Queue,
+    ) => Effect.Effect<void, UserAlreadyInQueue | RedisAnyError>;
+    delete: (
+      self: Types.Context,
+    ) => Effect.Effect<void, UserIsNotQueue | RedisAnyError>;
+    find: (self: Queue) => Effect.Effect<Option.Option<Queue>>;
+    make: (
+      context: Types.Context,
+      self: User,
+      gender: User["gender"],
+    ) => Effect.Effect<Queue>;
+    print: (self: User) => Effect.Effect<string>,
+    isInQueue: (self: Types.Context) => Effect.Effect<boolean, RedisAnyError>;
   }
 >() { }
 
-const byRaiting = Order.mapInput(Order.number, (self: Queue) => self.raiting)
+const byRaiting = Order.mapInput(Order.number, (self: Queue) => self.raiting);
 
-const byTagMatches = (root: Queue): Order.Order<Queue> => (self: Queue, that: Queue) => {
-  return Order.number(
-    Array.intersection(root.tags, self.tags).length,
-    Array.intersection(root.tags, that.tags).length
-  )
-}
+const byTagMatches =
+  (root: Queue): Order.Order<Queue> =>
+    (self: Queue, that: Queue) => {
+      return Order.number(
+        Array.intersection(root.tags, self.tags).length,
+        Array.intersection(root.tags, that.tags).length,
+      );
+    };
 
-const computedRaiting = ({ likes, dislikes }: { likes: number, dislikes: number }): number =>
-  likes + dislikes === 0 ? 0 : likes / (likes + dislikes);
+const computedRaiting = ([like, dislike]: readonly [number, number]): number =>
+  like + dislike === 0 ? 0 : like / (like + dislike);
 
+const cahedQueue = (self: Queue) =>
+  Effect.promise(() =>
+    Redis.set(`queue:${self.username}`, stringifyQueue(self)),
+  );
+const deleteCahedQueue = (self: Queue) =>
+  Effect.promise(() => Redis.del(`queue:${self.username}`));
+const getCahedQueue = (self: Queue) =>
+  Effect.promise(() => Redis.hgetall(`queue:${self.username}`)).pipe(
+    Effect.map(parseQueue),
+  );
+
+// likes + dislikes === 0 ? 0 : likes / (likes + dislikes);
 
 export const QueueServiceLive = Layer.succeed(
   QueueService,
   QueueService.of({
-    append: (self: Queue) => Effect.tryPromise({
-      try: () => Redis.exists(`queue:${self.id}`),
-      catch: () => new RedisAnyError()
-    }).pipe(
-      Effect.filterOrFail(
-        (r) => r === 0,
-        () => new UserAlreadyInQueue(),
+    add: (self: Queue) =>
+      Effect.tryPromise({
+        try: () => Redis.exists(`queue:${self}`),
+        catch: () => new RedisAnyError(),
+      }).pipe(
+        Effect.filterOrFail(
+          r => r === 0,
+          () => new UserAlreadyInQueue(),
+        ),
+        Effect.andThen(() => cahedQueue(self)),
       ),
-      Effect.andThen(() =>
-        Effect.tryPromise({
-          try: async () => {
-            await Redis.hset(`queue:${self.id}`, serializeQueue(self))
-            await Redis.expire(`queue:${self.id}`, 24 * 60 * 60)
-          },
-          catch: () => new RedisAnyError()
-        })
-      )
-    ),
 
-    removal: (self: Types.Context) => Effect.tryPromise({
-      try: () => Redis.del(`queue:${self.from!.username!}`),
-      catch: () => new RedisAnyError()
-    }).pipe(
-      Effect.filterOrFail(
-        h => h > 0,
-        () => new UserIsNotQueue()
-      )
-    ),
-
-    findRightOne: (self: Queue) => Effect.promise(() => Redis.keys("queue:*")).pipe(
-      Effect.andThen(
-        Effect.forEach((queue) => Effect.promise(() => Redis.hgetall(queue || "")))
+    delete: (self: Types.Context) =>
+      Effect.tryPromise({
+        try: () => Redis.del(`queue:${self.from!.username!}`),
+        catch: () => new RedisAnyError(),
+      }).pipe(
+        Effect.filterOrFail(
+          h => h > 0,
+          () => new UserIsNotQueue(),
+        ),
       ),
-      Effect.map(Array.map(h => deserializeQueue(h))),
-      Effect.map(Array.filter(
-        (candidate) => {
-          const isGenderMatch = (self: Queue, that: Queue) =>
-            (self.searchGender === "any" && that.searchGender === self.gender)
-            || (that.gender === self.searchGender && that.searchGender === self.gender)
-            || (that.searchGender === "any" && self.searchGender === that.gender);
 
-          return Math.abs(candidate.age - self.age) <= 5
-            // && candidate.tags.some(tag => self.tags.includes(tag))
-            && isGenderMatch(self, candidate)
-        }
-      )),
-      Effect.map(Array.sort(Order.combine(byTagMatches(self), byRaiting))),
-      Effect.map(Array.get(0)),
-    ),
+    find: (self: Queue) =>
+      Effect.promise(() => Redis.keys("queue:*")).pipe(
+        Effect.andThen(
+          Effect.forEach(queue => Effect.promise(() => Redis.get(queue || ""))),
+        ),
+        Effect.map(Array.map(h => parseQueue(h))),
+        // Effect.tap(Console.info("find searching")),
+        // Effect.tap(Console.info),
+        Effect.map(
+          Array.filter(candidate => {
+            const isGenderMatch = (self: Queue, that: Queue) =>
+              (self.searchGender === "any" && that.searchGender === self.gender) ||
+              (that.gender === self.searchGender && that.searchGender === self.gender) ||
+              (that.searchGender === "any" && self.searchGender === that.gender);
+
+            return (
+              Math.abs(candidate.age - self.age) <= 5 &&
+              candidate.categories.some(categor =>
+                self.categories.includes(categor),
+              ) &&
+              isGenderMatch(self, candidate)
+            );
+          }),
+        ),
+        Effect.map(Array.sort(Order.combine(byTagMatches(self), byRaiting))),
+        Effect.map(Array.get(0)),
+      ),
+    print: (self: User) => Effect.gen(function*(_) {
+
+      const matchgender = Match.type<User["gender"]>().pipe(
+        Match.when("men", () => "♂"),
+        Match.when("women", () => "♀"),
+        Match.when("any", () => "⚤"),
+        Match.exhaustive,
+      )
+
+      const moonPhases = ['☆', '☆', '☆', '★', '★'] as const;
+
+      const moonRating = ([likes, dislikes]: readonly [number, number]): string => {
+        const totalVotes = likes + dislikes;
+        if (totalVotes === 0) return "Оценок пока нету";
+
+        const starRating = Math.round((likes / totalVotes) * 10) / 2;
+
+        return pipe(
+          Array.range(1, 5),
+          Array.map((_, i) => 
+            Array.get(moonPhases, Math.min(Math.floor(Math.max(starRating - i, 0) * 4), 4)).pipe(
+              Option.getOrElse(() => "")
+            )
+          ),
+          Array.join("")
+        )
+      };
+
+      return `${self.name} ${self.age} 
+${matchgender(self.gender)} ${moonRating(self.rating)}
+${self.description}`
+    }),
 
     make: (
-      { id, chat, gender, age, tags, raiting }: User,
-      searchGender: User["gender"]
-    ) => Effect.promise(() => Redis.setex(`search:${id}`, 60 * 60, searchGender,))
-      .pipe(
-        Effect.as({
-          id, chat, gender, age, tags,
-          raiting: computedRaiting(raiting),
-          searchGender,
-        })
+      context: Types.Context,
+      { username, chat, gender, age, tags, rating }: User,
+      searchGender: User["gender"],
+    ) =>
+      Effect.sync(() => (context.session.search = searchGender || "any")).pipe(
+        Effect.as(
+          QueueSchema.make({
+            username,
+            chat,
+            gender: gender || "any",
+            age: age || 18,
+            categories: context.session.categories,
+            tags: tags.split(" "),
+            raiting: computedRaiting(rating),
+            searchGender,
+          }),
+        ),
       ),
 
-    isInQueue: (self: Types.Context) => Effect.gen(function*() {
-      return yield* Effect.tryPromise({
-        try: () => Redis.exists(`queue:${self.from!.username!}`),
-        catch: () => new RedisAnyError()
-      }).pipe(
-        Effect.map(h => Boolean(h))
-      )
-    })
-  })
-)
+    isInQueue: (self: Types.Context) =>
+      Effect.gen(function*() {
+        return yield* Effect.tryPromise({
+          try: () => Redis.exists(`queue:${self.from!.username!}`),
+          catch: () => new RedisAnyError(),
+        }).pipe(Effect.map(h => Boolean(h)));
+      }),
+  }),
+);

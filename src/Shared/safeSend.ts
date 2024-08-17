@@ -15,8 +15,6 @@ export const safeReply = (
   catch: (error) => {
     if ((<{ error_code: number }>error).error_code === 403) 
       return new ForbiddenError();
-      console.log(error);
-      
     return new UnknownMessageError();
   }
 })
