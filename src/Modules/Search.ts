@@ -1,13 +1,13 @@
 import { Console, Effect, Option } from "effect";
 import { Redis } from "../Databases/Redis.js";
-import { EndSearhingKeyboard } from "../Keyboards/EndSearhing.js";
-import { MainMenu } from "../Keyboards/Main.js";
-import { StopConventionKeyboard } from "../Keyboards/StopConvention.js";
-import { Queue } from "../Schemas/Queue.js";
+import { EndSearhingKeyboard } from "../Keyboards/EndSearhingKeyboard.js";
+import { MainMenu } from "../Keyboards/MainKeyboard.js";
+import { StopConventionKeyboard } from "../Keyboards/StopConventionKeyboard.js";
+import { deserializeQueue, Queue } from "../Schemas/Queue.js";
 import { User } from "../Schemas/User.js";
 import { ConnectionService, ConnectionServiceLive } from "../Services/Connection.js";
 import { QueueService, QueueServiceLive } from "../Services/Queue.js";
-import { UserService, UserServiceLive } from "../Services/Users.js";
+import { UserService, UserServiceLive } from "../Services/User.js";
 import { safeReply } from "../Shared/safeSend.js";
 import * as Types from "../Types.js"
 import { toStopConvection } from "./Chat.js";
@@ -23,21 +23,24 @@ export const toSearch = (gender: User["gender"]) =>
     const queue = yield* QueueService;
     const User = yield* UserService;
     const Connection = yield* ConnectionService;
+    // console.log("FGVHBBJNKMM");
+    
 
 
     const selfQueue = yield* _(
       User.getSelf(context),
-      Effect.andThen((user: User) => queue.make(user, gender)),
-      // Effect.map(h => deserializeQueue(h))
+      Effect.andThen((user: User) => queue.make(context, user, gender)),
+      // Effect.tap(h => Console.info("selfQueue ", h)),
+      Effect.map(h => deserializeQueue(h))
     )
     
 
-    const matchUser = yield* queue.findRightOne(selfQueue)
+    const matchUser = yield* queue.find(selfQueue)
 
 
     if (Option.isNone(matchUser)) {
       yield* safeReply(context, textToSearch[gender], { reply_markup: EndSearhingKeyboard });
-      yield* queue.append(selfQueue);
+      yield* queue.add(selfQueue);
     }
     else yield* Connection.connect(context, selfQueue, matchUser.value)
 
@@ -98,19 +101,19 @@ export const toSearchInConnection = async (context: Types.Context) =>
       Effect.runPromise
     )
 
-export const toStopSearchingIsNot = async (context: Types.Context) =>
-  safeReply(context, "У вас и так нету собеседника", { reply_markup: StopConventionKeyboard })
-    .pipe(
-      Effect.catchTags({
-        "ForbiddenError": () => Console.log(context),
-        "UnknownMessageError": () => Console.log(context)
-      }),
-      Effect.runPromise
-    )
-
+// export const toStopSearchingIsNot = async (context: Types.Context) =>
+//   safeReply(context, "У вас и так нету собеседника", { reply_markup: StopConventionKeyboard })
+//     .pipe(
+//       Effect.catchTags({
+//         "ForbiddenError": () => Console.log(context),
+//         "UnknownMessageError": () => Console.log(context)
+//       }),
+//       Effect.runPromise
+//     )
+//
 export const toStopSearching = (context: Types.Context) => Effect.gen(function*(_) {
-  const { removal } = yield* QueueService;
-  yield* removal(context)
+  const queue = yield* QueueService;
+  yield* queue.delete(context)
   yield* safeReply(context, "Вы прекратили поиск собеседника", { reply_markup: MainMenu })
 }).pipe(
   Effect.catchTags({

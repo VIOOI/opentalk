@@ -1,18 +1,15 @@
-import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
-import * as uuid from 'uuid';
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { v4 as uuidv4 } from "uuid";
 
-export const AdsTable = sqliteTable("ads", {
-  id: text("ad_id").primaryKey().$defaultFn(() => uuid.v4()), 
-  type: text("type", { enum: ["small", "post"] }), 
-  content: text("content"), 
-  targetAge: text("target_age"), 
-  targetGender: text("target_gender", { enum: ["men", "women", "any"] }), 
-  targetTags: text("taret_interests"), 
-  compaignType: text("campaign_type", { enum: ["views", "time"] }), 
-  maxViews: integer("max_views").default(-1), 
-  startDate: text("start_date").default(sql`(CURRENT_TIMESTAMP)`), 
-  endDate: text("end_date").default(sql`(CURRENT_TIMESTAMP)`), 
-  createdAt: text("created_at").default("CURRENT_TIMESTAMP"), 
-  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"), 
+export const ads = sqliteTable("ads", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv4()),
+  type: text("type", { enum: ["small", "large", "forwared"] }),
+  content: text("content"),
+  age: text("age"),
+  gender: text("gender", { enum: ["men", "women", "any"] }),
+  tags: text("tags"),
 });
+
+export type NewAds = typeof ads.$inferInsert;

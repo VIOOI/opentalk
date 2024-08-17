@@ -1,65 +1,63 @@
 import { Schema } from "@effect/schema";
 // biome-ignore lint/suspicious/noShadowRestrictedNames: LINTER: 
-import { Array, Effect, String, pipe } from "effect";
+import { Array, Effect, Number, Option, String, Tuple, pipe } from "effect";
 import * as Ref from "effect/Ref";
 
 
-const RaitingSchema = Schema.Struct({
-  likes: Schema.Number,
-  dislikes: Schema.Number,
-})
-
-const StringToNumber = Schema.transform(
-  Schema.String,
-  Schema.Number,
-  {
-    encode: h => `${h}`,
-    decode: h => Number(h)
-  }
-)
+// const RaitingSchema = Schema.Struct({
+//   likes: Schema.Number,
+//   dislikes: Schema.Number,
+// })
+//
+// const StringToNumber = Schema.transform(
+//   Schema.String,
+//   Schema.Number,
+//   {
+//     encode: h => `${h}`,
+//     decode: h => Number(h)
+//   }
+// )
 
 export const UserSchema = Schema.Struct({
-  id: Schema.String,
-  chat: StringToNumber,
-  gender: Schema.Literal("men", "women", "any"),
+  username: Schema.String,
+  chat: Schema.String,
   name: Schema.String,
-  age: StringToNumber,
+  gender: Schema.Literal("men", "women", "any"),
+  age: Schema.Number,
   description: Schema.String,
-  raiting: Schema.transform(
+  rating: Schema.transform(
     Schema.String,
-    RaitingSchema,
+    Schema.Tuple(Schema.Number, Schema.Number),
     {
-      encode: self => `${self.likes}/${self.dislikes}`,
+      encode: self => `${self.at(0) || 0} ${self.at(1) || 0}`,
       decode: self => pipe(
-        String.split(self, "/"),
-        Array.map(s => Number(s)),
-        ([ likes, dislikes ]) => ({ likes: likes!, dislikes: dislikes! })
+        String.split(self, " "),
+        Array.map(s => Number.parse(s).pipe(Option.getOrElse(() => 0))),
+        num => Tuple.make(
+          Array.unsafeGet(num, 0),
+          Array.unsafeGet(num, 1),
+        )
       )
     }
   ),
-  tags: Schema.transform(
-    Schema.String,
-    Schema.Array(Schema.String),
-    {
-      encode: Array.join(" "),
-      decode: String.split(" ")
-    }
-  )
+  tags: Schema.String,
 });
 export type User = Schema.Schema.Type<typeof UserSchema>;
 
 export const deserializeUser = Schema.decodeUnknownSync(UserSchema);
 export const serializeUser = Schema.encodeUnknownSync(UserSchema);
-// export const validateUser = Schema.validateSync(UserSchema);
+export const serializePartialUser = Schema.encodeUnknownSync(Schema.partial(UserSchema));
+export const parseUser = Schema.decodeUnknownSync(Schema.parseJson(UserSchema));
+export const stringifyUser = Schema.encodeUnknownSync(Schema.parseJson(UserSchema));
 
 
 export const seedUser = Ref.make<User>({
-  id: "default",
-  chat: 0,
+  username: "default",
+  chat: "0",
   gender: "any",
   name: "",
   age: 0,
   description: "",
-  raiting: { likes: 0, dislikes: 0 },
-  tags: [],
+  rating: [0, 0],
+  tags: "",
 })

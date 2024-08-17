@@ -1,32 +1,30 @@
 import { Schema } from "@effect/schema";
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
-import { Array, String } from "effect";
-import * as uuid from 'uuid';
+import { Array, Number, Option, pipe, String, Tuple } from "effect";
+import { v4 as uuidv4 } from 'uuid';
 import { UserSchema } from "./User.js";
 
 export const AdsSchema = Schema.Struct({
   id: Schema.String,
-  type: Schema.Literal("small", "post"),
+  type: Schema.Literal("small", "large", "forwared"),
   content: Schema.String,
-  targetAge: Schema.transform(
+  age: Schema.transform(
     Schema.String,
     Schema.Tuple(Schema.Number, Schema.Number),
     {
-      encode: ([min, max]) => `${min}-${max}`,
-      decode: (str) => Array.map(
-        String.split(str, "-"),
-        s => Number(s)
-      ) as unknown as readonly [number, number]
+      encode: self => `${Tuple.getFirst(self)} ${Tuple.getSecond(self)}`,
+      decode: self => pipe(
+        String.split(self, " "),
+        Array.map(s => Number.parse(s).pipe(Option.getOrElse(() => 0))),
+        num => Tuple.make(
+          Array.unsafeGet(num, 0),
+          Array.unsafeGet(num, 1),
+        )
+      )
     }
   ),
-  targetGender: UserSchema.fields.gender,
-  targetTags: UserSchema.fields.tags,
-  compaignType: Schema.Literal("views", "time"),
-  maxViews: Schema.Number,
-  startDate: Schema.String,
-  endDate: Schema.String,
-  createdAt: Schema.String,
-  updatedAt: Schema.String,
+  gender: UserSchema.fields.gender,
+  tags: UserSchema.fields.tags,
 })
 
 export const deserializeAds = Schema.decodeUnknownSync(AdsSchema);
@@ -35,31 +33,19 @@ export const serializeAds = Schema.encodeUnknownSync(AdsSchema);
 export type Ads = Schema.Schema.Type<typeof AdsSchema>
 
 export const DefaultSmallAds: Ads = {
-  id: uuid.v4(),
+  id: uuidv4(),
   type: "small",
   content: "Новости и полезная информация о боте @opentalkru",
-  targetAge: [0, 99],
-  targetGender: "any",
-  targetTags: ["*"],
-  compaignType: "time",
-  maxViews: -1,
-  startDate: Date.now().toString(),
-  endDate: Date.now().toString(),
-  createdAt: Date.now().toString(),
-  updatedAt: Date.now().toString(),
+  tags: "",
+  gender: "any",
+  age: [0, 99],
 }
 
 export const DefaultPostAds: Ads = {
-  id: uuid.v4(),
-  type: "small",
+  id: uuidv4(),
+  type: "large",
   content: "Новости и полезная информация о боте @opentalkru",
-  targetAge: [0, 99],
-  targetGender: "any",
-  targetTags: ["*"],
-  compaignType: "time",
-  maxViews: -1,
-  startDate: Date.now().toString(),
-  endDate: Date.now().toString(),
-  createdAt: Date.now().toString(),
-  updatedAt: Date.now().toString(),
+  tags: "",
+  gender: "any",
+  age: [0, 99],
 }
