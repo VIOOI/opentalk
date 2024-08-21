@@ -114,6 +114,7 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
           left => left.message!.text!
         )
       ),
+      Effect.map(String.toLowerCase),
       Effect.map(h => deserializeTags(h)),
     )
 
