@@ -45,10 +45,9 @@ export const Config = Layer.effectDiscard(
       conversation: { initial: () => ({}) }, // may be left empty
     }))
     
-    grammy.use(SettingsMenu)
-    grammy.use(TagsKeyboard)
 
     grammy.use(conversations())
+    
 
 
     grammy.use(createConversation(Settings.Name, "settingsName"))
@@ -58,6 +57,8 @@ export const Config = Layer.effectDiscard(
     grammy.use(createConversation(toStartNotAuth));
     grammy.use(createConversation(addedAds));
 
+    grammy.use(TagsKeyboard)
+    grammy.use(SettingsMenu)
     // grammy.use(SettingsMenu)
 
 

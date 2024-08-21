@@ -2,7 +2,7 @@ import { Menu, MenuFlavor, MenuButton } from "@grammyjs/menu";
 import { eq } from "drizzle-orm";
 import { Array, Effect, Option, Record } from "effect";
 import { safeReply } from "../Shared/safeSend.js";
-import { User } from "../Schemas/User.js";
+import { serializeTags, serializeUser, User } from "../Schemas/User.js";
 import * as Types from "../Types.js"
 import { UserService, UserServiceLive } from "../Services/User.js";
 import { users } from "../Databases/tables.js";
@@ -39,7 +39,7 @@ ${self.description}
 const textToTags = (self: User) => `Выберите интересы для поиска, по ним мы будем искать для вас собеседника и по ним будут искать вас. 
 
 Так же вы можете написать теги для сужения поиска собеседника, чтобы мы общались с наиболее подходящим собеседником.
-Выши теги: ${self.tags}
+Выши теги: ${serializeUser(self).tags}
 
 Теги пишутся черезер пробел, например: Аниме игры фильмы`;
 

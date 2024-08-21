@@ -51,10 +51,11 @@ export const UserServiceLive = Layer.succeed(
         () => Effect.promise(() => Drizzle.update(users).set(serializeUser(self))
           .where(eq(users.username, self.username)).returning())
           .pipe(
+            Effect.map(Array.unsafeGet(0)),
             Effect.map(deserializeUser),
-            Effect.tap(cahedUser)
-          )
-      )
+            Effect.tap(cahedUser),
+          ),
+      ),
     ),
 
     delete: (self: Types.Context) => Effect.tryPromise({

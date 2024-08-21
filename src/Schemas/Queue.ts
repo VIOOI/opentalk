@@ -1,17 +1,9 @@
 
 import { Schema } from "@effect/schema";
-import { UserSchema } from "./User.js";
+import { TagsSchema, UserSchema } from "./User.js";
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
 import { Array, String } from "effect";
 
-const StringToNumber = Schema.transform(
-  Schema.String,
-  Schema.Number,
-  {
-    encode: h => `${h}`,
-    decode: h => Number(h)
-  }
-)
 
 export const QueueSchema = Schema.Struct({
   username: UserSchema.fields.username,
@@ -20,7 +12,7 @@ export const QueueSchema = Schema.Struct({
   searchGender: UserSchema.fields.gender,
   age: Schema.Number,
   categories: Schema.Array(Schema.String),
-  tags: Schema.Array(Schema.String),
+  tags: TagsSchema.to,
   raiting: Schema.Number,
 })
 

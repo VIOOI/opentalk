@@ -9,6 +9,7 @@ import { sendMessageWaitOrSkip } from "../Shared/safeConversation.js";
 import { safeReply } from "../Shared/safeSend.js";
 import * as Types from "../Types.js"
 import { TagsKeyboard } from "../Keyboards/TagsKeyboard.js";
+import { deserializeTags, deserializeUser, UserSchema } from "../Schemas/User.js";
 
 
 export const toStartNotAuth = (conversation: Types.Conversation, context: Types.Context) =>
@@ -50,7 +51,7 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
     )
 
     const gender = yield* _(
-      sendMessageWaitOrSkip<"any">(
+      sendMessageWaitOrSkip<"any" | "men" | "women">(
         () => context.reply(`Какого вы пола?`, { reply_markup: GenderKeyboard }),
         () => conversation.waitFor("message:text"),
         async () => {
@@ -66,7 +67,7 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
             Match.orElse(() => "any" as const)
           )
         )
-      )
+      ),
     )
 
     const description = yield* _(
@@ -82,7 +83,7 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
         Either.getOrElse(
           left => left.message!.text || ""
         )
-      )
+      ),
     )
 
     // class TagsIsEmptyError extends Data.TaggedError("TagsIsEmptyError") {}
@@ -93,7 +94,11 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
 
 Так же вы можете написать теги для сужения поиска собеседника, чтобы мы общались с наиболее подходящим собеседником.
 
-Теги пишутся черезер пробел, например: Аниме игры фильмы`,
+Псотавте ! перед тегом и он будет обязательным.
+Поставте - перед тегом и мы подберём пользователя без этого тега
+Псотавте :число - это будет сила с которой влияет этот тег на поиск (по умолчанию сила 1)
+
+Теги пишутся черезер пробел, например: !аниме игры:5 -фильмы`,
           {
             reply_markup: TagsKeyboard,
             parse_mode: "Markdown"
@@ -113,17 +118,27 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
           left => left.message!.text!
         )
       ),
+      // Effect.map(String.split(" ")),
+      Effect.map(h => deserializeTags(h)),
     )
 
     const Users = yield* UserService;
+
+    // console.log({
+    //   username: context.from!.username!,
+    //   chat: context.chat!.id.toString(),
+    //   name, age, gender, description, tags,
+    //   rating: [0, 0],
+    // },
+    // );
+
 
     yield* _(
       Users.add(
         {
           username: context.from!.username!,
           chat: context.chat!.id.toString(),
-          name, age, gender, description,
-          tags: String.toLowerCase(tags),
+          name, age, gender, description, tags,
           rating: [0, 0],
         },
       ),
@@ -135,7 +150,6 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
         )
       )
     )
-    conversation.session.status = "auth";
 
   }).pipe(
     Effect.provide(UserServiceLive),

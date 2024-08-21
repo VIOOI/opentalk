@@ -104,7 +104,7 @@ export const addedAds = (conversation: Types.Conversation, context: Types.Contex
 
   // @ts-ignore
   yield* Ref.updateAndGet(newAds, Record.set("tags", conversation.session.categories.join(" "))).pipe(
-    Effect.tap(Console.log),
+    // Effect.tap(Console.log),
     Effect.andThen(
       (value) => Effect.promise(
         () => Drizzle.insert(ads).values(value)

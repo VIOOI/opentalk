@@ -2,7 +2,7 @@ import { Schema } from "@effect/schema";
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
 import { Array, Number, Option, pipe, String, Tuple } from "effect";
 import { v4 as uuidv4 } from 'uuid';
-import { UserSchema } from "./User.js";
+import { TagsSchema, UserSchema } from "./User.js";
 
 export const AdsSchema = Schema.Struct({
   id: Schema.String,
@@ -36,7 +36,7 @@ export const DefaultSmallAds: Ads = {
   id: uuidv4(),
   type: "small",
   content: "Новости и полезная информация о боте @opentalkru",
-  tags: "",
+  tags: [],
   gender: "any",
   age: [0, 99],
 }
@@ -45,7 +45,7 @@ export const DefaultPostAds: Ads = {
   id: uuidv4(),
   type: "large",
   content: "Новости и полезная информация о боте @opentalkru",
-  tags: "",
+  tags: [],
   gender: "any",
   age: [0, 99],
 }

@@ -36,6 +36,9 @@ export const toSearch = (gender: User["gender"]) =>
     
 
     const matchUser = yield* queue.find(selfQueue)
+    // const matchUser = yield* User.getSelf(context).pipe(
+    //   Effect.andThen(u => queue.find(u))
+    // )
 
 
     if (Option.isNone(matchUser)) {

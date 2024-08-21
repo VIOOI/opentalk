@@ -71,7 +71,7 @@ export const AdsServiceLive = Layer.succeed(
 
         return pipe(
           manyAds,
-          Array.map(a => deserializeAds(a)),
+          Array.map(h => deserializeAds(h)),
           Array.filter(
             ads => isWithinRange(ads.age, self.age!),
             // && hasCommonTags(ads.tags, self.tags)
