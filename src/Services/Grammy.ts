@@ -42,7 +42,7 @@ export const Config = Layer.effectDiscard(
       categories: { initial: () => ["Общение"] },
       history: { initial: () => HashMap.empty<string, string>() },
       status: { initial: () => "unauth" },
-      conversation: { initial: () => ({}) }, // may be left empty
+      conversation: { initial: () => ({}) },
     }))
  
 
@@ -50,17 +50,18 @@ export const Config = Layer.effectDiscard(
     grammy.use(conversations())
     
 
+    grammy.use(createConversation(Settings.Tags, "settings-tags"))
+    
+    grammy.use(TagsKeyboard)
 
     grammy.use(createConversation(Settings.Name, "settings-name"))
     grammy.use(createConversation(Settings.Age, "settings-age"))
-    grammy.use(createConversation(Settings.Tags, "settings-tags"))
     grammy.use(createConversation(Settings.Description, "settings-description"))
     grammy.use(createConversation(toStartNotAuth));
     grammy.use(createConversation(addedAds));
 
 
     grammy.use(SettingsMenu)
-    grammy.use(TagsKeyboard)
 
   })
 )

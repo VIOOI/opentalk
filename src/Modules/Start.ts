@@ -86,17 +86,13 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
       ),
     )
 
-    // class TagsIsEmptyError extends Data.TaggedError("TagsIsEmptyError") {}
     const tags = yield* _(
       sendMessageWaitOrSkip<string>(
         () => context.reply(
           `Выберите интересы для поиска, по ним мы будем искать для вас собеседника и по ним будут искать вас. 
 
 Так же вы можете написать теги для сужения поиска собеседника, чтобы мы общались с наиболее подходящим собеседником.
-
-Псотавте ! перед тегом и он будет обязательным.
-Поставте - перед тегом и мы подберём пользователя без этого тега
-Псотавте :число - это будет сила с которой влияет этот тег на поиск (по умолчанию сила 1)
+Подробнее о продвинутых тегах вы можете узнать [здесь](https://t.me/opentalkru/22)
 
 Теги пишутся черезер пробел, например: !аниме игры:5 -фильмы`,
           {
@@ -106,7 +102,7 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
         ),
         () => conversation.waitFor("message:text"),
         async () => Effect.gen(function*(_) {
-          yield* safeReply(context, "Хорошо мы оставим оставим их пустыми, вы всегда можете поменять его в настройках")
+          yield* safeReply(context, "Хорошо мы оставим их пустыми, вы всегда можете поменять его в настройках")
           return "";
         }).pipe(
           Effect.catchAll(() => Effect.succeed("")),
@@ -118,20 +114,10 @@ export const toStartNotAuth = (conversation: Types.Conversation, context: Types.
           left => left.message!.text!
         )
       ),
-      // Effect.map(String.split(" ")),
       Effect.map(h => deserializeTags(h)),
     )
 
     const Users = yield* UserService;
-
-    // console.log({
-    //   username: context.from!.username!,
-    //   chat: context.chat!.id.toString(),
-    //   name, age, gender, description, tags,
-    //   rating: [0, 0],
-    // },
-    // );
-
 
     yield* _(
       Users.add(

@@ -1,6 +1,5 @@
 import { Menu, MenuRange } from "@grammyjs/menu";
 import { Array } from "effect";
-import { InlineKeyboard } from "grammy";
 import * as Types from "../Types.js"
 
 const categories = ["Ролевые игры", "Общение", "Игры", "Путешествия",
