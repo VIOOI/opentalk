@@ -102,7 +102,7 @@ const effectSetSetting = (print: ((self: User) => string), conversation: string,
   )
 
 export const SettingsMenu = new Menu<Types.Context>("settings-menu")
-  .text("Имя", effectSetSetting(textToName, "settingsName"))
+  .text("Имя", effectSetSetting(textToName, "settings-name"))
   .text("Пол", async (context) => Effect.gen(function*(_) {
     const user = yield* _(
       UserService,
@@ -115,9 +115,9 @@ export const SettingsMenu = new Menu<Types.Context>("settings-menu")
     Effect.provide(UserServiceLive),
     Effect.runPromise
   )).row()
-  .text("Возраст", effectSetSetting(textToAge, "settingsAge"))
-  .text("Теги", effectSetSetting(textToTags, "settingsTags", "select-tags-keyboard")).row()
-  .text("Описание", effectSetSetting(textToDescription, "settingsDescription"))
+  .text("Возраст", effectSetSetting(textToAge, "settings-age"))
+  .text("Теги", effectSetSetting(textToTags, "settings-tags", "select-tags-keyboard")).row()
+  .text("Описание", effectSetSetting(textToDescription, "settings-description"))
 
 SettingsMenu.register(BackAgeMenu);
 SettingsMenu.register(TagsKeyboard.back("← назад", async (context) => {

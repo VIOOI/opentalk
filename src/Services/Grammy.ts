@@ -44,24 +44,23 @@ export const Config = Layer.effectDiscard(
       status: { initial: () => "unauth" },
       conversation: { initial: () => ({}) }, // may be left empty
     }))
-    
+ 
 
+    
     grammy.use(conversations())
     
 
 
-    grammy.use(createConversation(Settings.Name, "settingsName"))
-    grammy.use(createConversation(Settings.Age, "settingsAge"))
-    grammy.use(createConversation(Settings.Tags, "settingsTags"))
-    grammy.use(createConversation(Settings.Description, "settingsDescription"))
+    grammy.use(createConversation(Settings.Name, "settings-name"))
+    grammy.use(createConversation(Settings.Age, "settings-age"))
+    grammy.use(createConversation(Settings.Tags, "settings-tags"))
+    grammy.use(createConversation(Settings.Description, "settings-description"))
     grammy.use(createConversation(toStartNotAuth));
     grammy.use(createConversation(addedAds));
 
-    grammy.use(TagsKeyboard)
+
     grammy.use(SettingsMenu)
-    // grammy.use(SettingsMenu)
-
-
+    grammy.use(TagsKeyboard)
 
   })
 )
