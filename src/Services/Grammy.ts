@@ -51,12 +51,12 @@ export const Config = Layer.effectDiscard(
     
 
     grammy.use(createConversation(Settings.Tags, "settings-tags"))
-    
-    grammy.use(TagsKeyboard)
-
     grammy.use(createConversation(Settings.Name, "settings-name"))
     grammy.use(createConversation(Settings.Age, "settings-age"))
     grammy.use(createConversation(Settings.Description, "settings-description"))
+    
+    grammy.use(TagsKeyboard)
+
     grammy.use(createConversation(toStartNotAuth));
     grammy.use(createConversation(addedAds));
 
