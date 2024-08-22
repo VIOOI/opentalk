@@ -20,7 +20,7 @@ import {
   deserializeQueue,
   parseQueue,
   serializeQueue,
-  stringifyQueue,
+  // stringifyQueue,
 } from "../Schemas/Queue.js";
 import * as Types from "../Types.js";
 import { deserializeUser, parseUser, User } from "../Schemas/User.js";
@@ -78,7 +78,8 @@ const computedRaiting = ([like, dislike]: readonly [number, number]): number =>
 const isGenderMatch = (self: Queue, that: Queue) =>
   (self.searchGender === "any" && that.searchGender === self.gender) ||
   (that.gender === self.searchGender && that.searchGender === self.gender) ||
-  (that.searchGender === "any" && self.searchGender === that.gender);
+  (that.searchGender === "any" && self.searchGender === that.gender) ||
+  (that.searchGender === "any" && self.searchGender === "any");
 
 const getTagsWithMod = (self: Queue["tags"], mod: -1 | 0 | 1) => pipe(
   self,
@@ -103,14 +104,9 @@ export const QueueServiceLive = Layer.succeed(
   QueueService.of({
     add: (self: Queue) =>
       Effect.tryPromise({
-        try: () => Redis.exists(`queue:${self}`),
+        try: () => Redis.set(`queue:${self.username}`, JSON.stringify(self)),
         catch: () => new RedisAnyError(),
-      }).pipe(
-        Effect.filterOrFail(
-          r => r === 0,
-          () => new UserAlreadyInQueue(),
-        ),
-      ),
+      }),
 
     delete: (self: Types.Context) =>
       Effect.tryPromise({
@@ -140,9 +136,9 @@ export const QueueServiceLive = Layer.succeed(
 
         const isPermittedAge = Math.abs(candidate.age - self.age) <= 5;
         const isUniformCategories = Array.intersection(candidate.categories, self.categories).length > 0;
-        const isImportantlyFull = getImportantlyFull(candidate.tags, selfImportantlyTags) 
+        const isImportantlyFull = getImportantlyFull(candidate.tags, selfImportantlyTags)
           && getImportantlyFull(self.tags, thatImportantlyTags);
-        const isNotAbsent = getNotAbsent(candidate.tags, selfAbsentTags) 
+        const isNotAbsent = getNotAbsent(candidate.tags, selfAbsentTags)
           && getNotAbsent(self.tags, thatAbsentTags)
 
         return isGenderMatch(self, candidate) &&
