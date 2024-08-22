@@ -61,6 +61,7 @@ export const TagsSchema = Schema.transform(
 export type Tag = Schema.Schema.Type<typeof TagsSchema>;
 export const deserializeTags = Schema.decodeUnknownSync(TagsSchema);
 export const serializeTags = Schema.encodeUnknownSync(TagsSchema);
+export const isValidateTags = Schema.decodeUnknownOption(TagsSchema);
 
 
 export const UserSchema = Schema.Struct({

@@ -9,7 +9,7 @@ import { safeReply } from "../Shared/safeSend.js";
 import * as Search from "../Modules/Search.js";
 import * as Start from "../Modules/Start.js";
 import * as Chat from "../Modules/Chat.js";
-import * as Settings from "../Modules/Settings.js";
+import * as Settings from "../Modules/Settings/index.js";
 import { Forwarding } from "../Modules/Chat.js";
 import { Composer } from "grammy";
 import { toRaiting } from "../Keyboards/RaitingKeyboard.js";
