@@ -74,18 +74,7 @@ const byTagMatches =
 const computedRaiting = ([like, dislike]: readonly [number, number]): number =>
   like + dislike === 0 ? 0 : like / (like + dislike);
 
-const cahedQueue = (self: Queue) =>
-  Effect.promise(() =>
-    Redis.set(`queue:${self.username}`, stringifyQueue(self)),
-  );
-// const deleteCahedQueue = (self: Queue) =>
-//   Effect.promise(() => Redis.del(`queue:${self.username}`));
-// const getCahedQueue = (self: Queue) =>
-//   Effect.promise(() => Redis.hgetall(`queue:${self.username}`)).pipe(
-//     Effect.map(parseQueue),
-//   );
 
-// likes + dislikes === 0 ? 0 : likes / (likes + dislikes);
 const isGenderMatch = (self: Queue, that: Queue) =>
   (self.searchGender === "any" && that.searchGender === self.gender) ||
   (that.gender === self.searchGender && that.searchGender === self.gender) ||
@@ -121,7 +110,6 @@ export const QueueServiceLive = Layer.succeed(
           r => r === 0,
           () => new UserAlreadyInQueue(),
         ),
-        Effect.andThen(() => cahedQueue(self)),
       ),
 
     delete: (self: Types.Context) =>
