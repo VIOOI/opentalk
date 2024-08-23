@@ -7,7 +7,6 @@ import { toStartNotAuth } from "../Modules/Start.js";
 import { SettingsMenu } from "../Modules/Settings/keyboards.js";
 import { addedAds } from "../Modules/Ads.js";
 import { settingsAge, settingsDescription, settingsName, settingsTags } from "../Modules/Settings/conversation.js";
-// import { SettingsMenu } from "../Modules/Settings.js";
 
 export class Grammy extends Context.Tag("@app/Grammy")<
   Grammy,
@@ -64,6 +63,9 @@ export const Config = Layer.effectDiscard(
     grammy.use(createConversation(toStartNotAuth));
     grammy.use(createConversation(addedAds));
 
+    grammy.catch(() => {
+      process.kill(process.pid)
+    })
 
 
   })
