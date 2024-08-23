@@ -42,21 +42,15 @@ const RouterLive = Layer.effect(
     const queue = yield* QueueService;
     const connection = yield* ConnectionService;
 
-    const statusSetAndGetFabric = (context: Types.Context) => (status: Types.Context["session"]["status"]) => {
-      context.session.status = status;
-      return status;
-    }
-
     const router = new GRouter<Types.Context>(async (context) => Effect.gen(function*() {
       if (context.from!.username === undefined) return "nousername"
       const self = yield* Effect.either(users.getSelf(context));
 
-      const statusSetAndGet = statusSetAndGetFabric(context);
 
-      if (Either.isLeft(self)) return statusSetAndGet("unauth")
-      if (yield* queue.isInQueue(context)) return statusSetAndGet("insearch")
-      if (yield* connection.isInConnection(context)) return statusSetAndGet("inconnection")
-      return statusSetAndGet("auth");
+      if (Either.isLeft(self)) return "unauth"
+      if (yield* queue.isInQueue(context)) return "insearch"
+      if (yield* connection.isInConnection(context)) return "inconnection"
+      return "auth";
 
     }).pipe(
       Effect.runPromise,
