@@ -1,0 +1,14 @@
+{
+	"apps": [
+		{
+      "name": "grammy",
+			"script": "./build/index.js",
+			"watch": true,
+			"instances": "max",
+			"exec_mode": "cluster",
+      "env": {
+        "DEBUG": "grammy*"
+      }
+		}
+	]
+}

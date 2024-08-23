@@ -14,6 +14,7 @@ export type SessionData = {
   categories: Array<string>,
   search: "men" | "women" | "any"
   history: HashMap.HashMap<string, string>
+  setting: number | undefined,
   // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   conversation?: Record<string, any>
 

@@ -4,9 +4,9 @@ import * as Types from "../Types.js"
 import { TagsKeyboard } from "../Keyboards/TagsKeyboard.js";
 import { conversations, createConversation } from "@grammyjs/conversations";
 import { toStartNotAuth } from "../Modules/Start.js";
-import { Settings, SettingsMenu } from "../Modules/Settings.js";
+import { SettingsMenu } from "../Modules/Settings/keyboards.js";
 import { addedAds } from "../Modules/Ads.js";
-// import { SettingsMenu } from "../Modules/Settings.js";
+import { settingsAge, settingsDescription, settingsName, settingsTags } from "../Modules/Settings/conversation.js";
 
 export class Grammy extends Context.Tag("@app/Grammy")<
   Grammy,
@@ -42,7 +42,8 @@ export const Config = Layer.effectDiscard(
       categories: { initial: () => ["Общение"] },
       history: { initial: () => HashMap.empty<string, string>() },
       status: { initial: () => "unauth" },
-      conversation: { initial: () => ({}) },
+      setting: { initial: () => undefined },
+      conversation: { initial: () => ({}) }, // may be left empty
     }))
  
 
@@ -50,18 +51,21 @@ export const Config = Layer.effectDiscard(
     grammy.use(conversations())
     
 
-    grammy.use(createConversation(Settings.Tags, "settings-tags"))
-    grammy.use(createConversation(Settings.Name, "settings-name"))
-    grammy.use(createConversation(Settings.Age, "settings-age"))
-    grammy.use(createConversation(Settings.Description, "settings-description"))
+
+    grammy.use(createConversation(settingsName, "settings-name"))
+    grammy.use(createConversation(settingsAge, "settings-age"))
+    grammy.use(createConversation(settingsTags, "settings-tags"))
+    grammy.use(createConversation(settingsDescription, "settings-description"));
     
     grammy.use(TagsKeyboard)
-
+    grammy.use(SettingsMenu)
+    
     grammy.use(createConversation(toStartNotAuth));
     grammy.use(createConversation(addedAds));
 
-
-    grammy.use(SettingsMenu)
+    grammy.catch(() => {
+      process.kill(process.pid)
+    })
 
   })
 )
