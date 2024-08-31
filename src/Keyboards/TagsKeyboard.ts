@@ -2,7 +2,7 @@ import { Menu, MenuRange } from "@grammyjs/menu";
 import { Array } from "effect";
 import * as Types from "../Types.js"
 
-const categories = ["Ролевые игры", "Общение", "Игры", "Путешествия",
+const categories = ["Вирт", "Общение", "Игры", "Путешествия",
   "Фильмы", "Книги", "Мемы", "Флирт",
   "Музыка", "Аниме", "Питомцы", "Спорт"]
 

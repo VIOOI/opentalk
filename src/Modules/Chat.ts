@@ -9,25 +9,33 @@ import { UserService, UserServiceLive } from "../Services/User.js";
 import { AdsService, AdsServiceLive } from "../Services/Ads.js";
 
 const disconnectOfForbidden = (context: Types.Context) => Effect.gen(function*(_) {
-  const ads = yield* AdsService;
-  const isBigAds = yield* ads.isBigAds;
+  const ads = yield* AdsService.pipe(
+    Effect.andThen(service => service.get(self))
+  );
 
 
   const that = yield* ConnectionService.pipe(Effect.andThen((service) => service.getCompanion(context)));
   const self = yield* UserService.pipe(Effect.andThen(service => service.getSelf(context)))
 
-  const inlineAds = yield* ads.getInlineAds(self).pipe(
-    Effect.map(h => isBigAds ? ("\n\n" + h.content) : ""),
-  )
-
   yield* Effect.promise(async () => Redis.del(`connect:${self.username}`, `connect:${that.username}`));
-  yield* safeReply(
+  
+  if (ads.type === "small") {
+    yield* safeSendMessage(context, self.chat, "Вас собеседник заблокировал бота, нам пришлось разорвать соединение" + `\n\n ${ads.content}`, {
+      reply_markup: MainMenu,
+    });
+  }
+  else {
+    yield* safeSendMessage(context, self.chat, "Вас собеседник заблокировал бота, нам пришлось разорвать соединение", { reply_markup: MainMenu });
+    if (ads.type === "large") yield* safeSendMessage(context, self.chat, ads.content!)
+    else yield* Effect.promise(() => context.api.forwardMessage(self.chat, ads.chat!, Number(ads.message)!))
+  }
+
+  yield* safeSendMessage(
     context,
-    "Вас собеседник заблокировал бота, нам пришлось разорвать соединение" + inlineAds,
-    { reply_markup: MainMenu }
-  )
-  yield* (isBigAds ? ads.sendBigAds(context, self) : Effect.void);
-  yield* safeReply(context, "Если хотите, оставьте мнение о вашем собеседнике. Рейтинг сильно влияет на поиск", { reply_markup: RaitingInlineKeyboard(that) })
+    self.chat,
+    "Если хотите, оставьте мнение о вашем собеседнике. Рейтинг сильно влияет на поиск\n@opentalkru",
+    { reply_markup: RaitingInlineKeyboard(that) },
+  );
 
 }).pipe(
   Effect.provide(ConnectionServiceLive),

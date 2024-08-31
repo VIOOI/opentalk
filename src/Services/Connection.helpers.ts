@@ -19,29 +19,32 @@ export const disconnectOfForbidden = (
   self: User,
   that: User,
 ) =>
-  Effect.gen(function* (_) {
-    const ads = yield* AdsService;
-    const isBigAds = yield* ads.isBigAds;
-
-    const inlineAds = yield* ads
-      .getInlineAds(self)
-      .pipe(Effect.map((h) => (!isBigAds ? "\n\n" + h.content : "")));
+  Effect.gen(function*(_) {
+    const ads = yield* AdsService.pipe(
+      Effect.andThen(service => service.get(self))
+    );
+    
 
     yield* Effect.promise(async () =>
       Redis.del(`connect:${self.username}`, `connect:${that.username}`),
     );
+    
+    if (ads.type === "small") {
+      yield* safeSendMessage(context, self.chat, "Вас собеседник заблокировал бота, нам пришлось разорвать соединение" + `\n\n ${ads.content}`, {
+        reply_markup: MainMenu,
+      });
+    }
+    else {
+      yield* safeSendMessage(context, self.chat, "Вас собеседник заблокировал бота, нам пришлось разорвать соединение", { reply_markup: MainMenu });
+      if (ads.type === "large") yield* safeSendMessage(context, self.chat, ads.content!)
+      else yield* Effect.promise(() => context.api.forwardMessage(self.chat, ads.chat!, Number(ads.message)!))
+    }
+
     yield* safeSendMessage(
       context,
       self.chat,
-      `Вас собеседник заблокировал бота, нам пришлось разорвать соединение ${inlineAds}`,
-      { reply_markup: MainMenu },
-    );
-    yield* isBigAds ? ads.sendBigAds(context, self) : Effect.void;
-    yield* safeSendMessage(
-      context,
-      self.chat,
-      "Если хотите, оставьте мнение о вашем собеседнике. Рейтинг сильно влияет на поиск",
-      { reply_markup: RaitingInlineKeyboard(that as unknown as User) },
+      "Если хотите, оставьте мнение о вашем собеседнике. Рейтинг сильно влияет на поиск\n@opentalkru",
+      { reply_markup: RaitingInlineKeyboard(that) },
     );
   }).pipe(
     Effect.provide(AdsServiceLive),
@@ -54,23 +57,27 @@ export const disconnectMessage = (
   that: User,
   isyou: boolean,
 ) =>
-  Effect.gen(function* (_) {
-    const ads = yield* AdsService;
-    const isBigAds = yield* ads.isBigAds;
-    // const isBigAds = true;
+  Effect.gen(function*(_) {
+    const ads = yield* AdsService.pipe(
+      Effect.andThen(service => service.get(self))
+    );
+    
 
     const message = isyou
       ? "Вы завершили чат с собеседником( "
       : "Собеседник завершил с вами чат( ";
 
-    const inlineAds = yield* ads
-      .getInlineAds(self)
-      .pipe(Effect.map((h) => (!isBigAds ? "\n\n" + h.content : "")));
+    if (ads.type === "small") {
+      yield* safeSendMessage(context, self.chat, message + `\n\n ${ads.content}`, {
+        reply_markup: MainMenu,
+      });
+    }
+    else {
+      yield* safeSendMessage(context, self.chat, message, { reply_markup: MainMenu });
+      if (ads.type === "large") yield* safeSendMessage(context, self.chat, ads.content!)
+      else yield* Effect.promise(() => context.api.forwardMessage(self.chat, ads.chat!, Number(ads.message)!))
+    }
 
-    yield* safeSendMessage(context, self.chat, message + inlineAds, {
-      reply_markup: MainMenu,
-    });
-    yield* isBigAds ? ads.sendBigAds(context, self) : Effect.void;
     yield* safeSendMessage(
       context,
       self.chat,
@@ -90,7 +97,7 @@ export const connectMessage = (
   self: User,
   that: User,
 ) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function*(_) {
     const queue = yield* QueueService;
     yield* Effect.promise(async () => {
       await Redis.set(`connect:${self.username}`, that.username);
