@@ -5,11 +5,12 @@ import {
   Data,
   Effect,
   Layer,
+  Order,
   Random,
   Ref,
 } from "effect";
 import { Drizzle } from "../Databases/Drizzle.js";
-// import { DrizzleAds } from "../Databases/Tables/Ads.js";
+import { DrizzleAds } from "../Databases/Tables/Ads.js";
 // import { ads } from "../Databases/Tables/Ads.js";
 // import { users } from "../Databases/Tables/User.js";
 import {
@@ -49,11 +50,15 @@ const getDrizzleAds = (gender: User["gender"]) =>
     catch: () => new AdNotMatchedError(),
   }).pipe(
     Effect.map(Array.map(ad => {
-      if (ad.type === "small") return { ...ad, probability: ad.probability! + 1.2 };
-      return { ...ad, probability: ad.probability! + 0.2 };
-    }))
+      if (ad.type === "small") return { ...ad, probability: ad.probability! + 2 };
+      return ad;
+    })),
+    Effect.map(Array.map(value => ({ value, sort: Math.random() }))),
+    Effect.map(Array.sort(sortedAds)),
+    Effect.map(Array.map(({ value }) => value)),
   );
 
+const sortedAds = Order.mapInput(Order.number, (self: { value: DrizzleAds, sort: number }) => self.sort)
 
 export const AdsServiceLive = Layer.succeed(
   AdsService,
@@ -71,15 +76,14 @@ export const AdsServiceLive = Layer.succeed(
         return yield* Effect.all(
           Array.map(
             ads,
-            (ad) => Effect.gen(function*(_) {
-
-              const cur = yield* Ref.updateAndGet(current, n => n + (ad.probability || 0))
-              // current = current + (ad.probability || 0)
-              // yield* Console.log(total, self, random, ad.probability, cur > random)
-              if (cur > random)
-                return ad
-              else yield* Effect.fail(new AdNotMatchedError());
-            }),
+            (ad) => Ref.updateAndGet(current, n => n + (ad.probability || 0)).pipe(
+              Effect.flatMap(current =>
+                Effect.if(current > random, {
+                  onTrue: () => Effect.succeed(ad),
+                  onFalse: () => Effect.fail(new AdNotMatchedError()),
+                })
+              ),
+            )
           )
         ).pipe(
           Effect.map(Array.filter(isNotUndefined)),
