@@ -52,6 +52,7 @@
     "@grammyjs/menu": "^1.2.2",
     "@grammyjs/parse-mode": "^1.10.0",
     "@grammyjs/router": "^2.0.0",
+    "@libsql/client": "^0.10.0",
     "better-sqlite3": "^11.1.2",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.32.0",

@@ -26,8 +26,17 @@ export const AdsSchema = Schema.Struct({
 		},
 	),
 	gender: UserSchema.fields.gender,
-	tags: UserSchema.fields.tags,
+	tags: Schema.transform(
+    Schema.String,
+    Schema.Array(Schema.String),
+    {
+      encode: self => self.join(" "),
+      decode: self => self.split(" "),
+    },
+  ),
   probability: Schema.Number,
+  impressions: Schema.Number,
+  count: Schema.Number,
 });
 
 export const deserializeAds = Schema.decodeUnknownSync(AdsSchema);
@@ -45,6 +54,8 @@ export const DefaultSmallAds: Ads = {
 	gender: "any",
 	age: [0, 99],
   probability: 0.5,
+  impressions: -1,
+  count: 0,
 };
 
 export const DefaultPostAds: Ads = {
@@ -57,4 +68,6 @@ export const DefaultPostAds: Ads = {
 	gender: "any",
 	age: [0, 99],
   probability: 0.5,
+  impressions: -1,
+  count: 0,
 };

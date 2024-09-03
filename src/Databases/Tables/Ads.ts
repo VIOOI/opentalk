@@ -10,9 +10,11 @@ export const ads = sqliteTable("ads", {
   chat: text("chat"),
   message: text("message"),
 	age: text("age"),
-	gender: text("gender", { enum: ["men", "women", "any"] }),
-	tags: text("tags"),
-  probability: integer("probability"),
+	gender: text("gender", { enum: ["men", "women", "any"] }).default("any"),
+	tags: text("tags").default(""),
+  probability: integer("probability").default(1.0),
+  impressions: integer("impressions").default(1000),
+  count: integer("count").default(0),
 });
 
 export type NewAds = typeof ads.$inferInsert;
