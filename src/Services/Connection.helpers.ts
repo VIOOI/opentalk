@@ -74,7 +74,7 @@ export const disconnectMessage = (
     }
     else {
       yield* safeSendMessage(context, self.chat, message, { reply_markup: MainMenu });
-      if (ads.type === "large") yield* safeSendMessage(context, self.chat, ads.content!)
+      if (ads.type === "large") yield* safeSendMessage(context, self.chat, ads.content!, { parse_mode: "Markdown" })
       else yield* Effect.promise(() => context.api.forwardMessage(self.chat, ads.chat!, Number(ads.message)!))
     }
 

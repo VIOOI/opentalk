@@ -27,7 +27,10 @@ export const safeSendMessage = (
   context: Types.Context,
   chat_id: number | string,
   message: string,
-  other?: { reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply }
+  other?: { 
+    reply_markup?: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply,
+    parse_mode?: ParseMode | undefined
+  }
 ) => Effect.tryPromise({
   try: async () => context.api.sendMessage(chat_id, message, other),
   catch: (error) => {
