@@ -7,7 +7,8 @@
 			"instances": "max",
 			"exec_mode": "cluster",
       "env": {
-        "DEBUG": "grammy*"
+        "DEBUG": "grammy*",
+        "BOT_TOKEN": "7238431609:AAEOzjHLP06MVWdjOpSgMIMA5MHA3Vhlouk"
       }
 		}
 	]

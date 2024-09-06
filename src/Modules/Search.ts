@@ -23,7 +23,6 @@ export const toSearch = (gender: User["gender"]) =>
     const queue = yield* QueueService;
     const User = yield* UserService;
     const Connection = yield* ConnectionService;
-    // console.log("FGVHBBJNKMM");
     
 
 

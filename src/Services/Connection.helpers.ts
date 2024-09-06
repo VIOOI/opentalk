@@ -62,6 +62,8 @@ export const disconnectMessage = (
       Effect.andThen(service => service.get(self))
     );
     
+    console.log(ads);
+    
 
     const message = isyou
       ? "Вы завершили чат с собеседником( "
@@ -70,11 +72,13 @@ export const disconnectMessage = (
     if (ads.type === "small") {
       yield* safeSendMessage(context, self.chat, message + `\n\n ${ads.content}`, {
         reply_markup: MainMenu,
+        parse_mode: "Markdown",
       });
     }
     else {
       yield* safeSendMessage(context, self.chat, message, { reply_markup: MainMenu });
-      if (ads.type === "large") yield* safeSendMessage(context, self.chat, ads.content!, { parse_mode: "Markdown" })
+      
+      if (ads.type === "large") yield* Effect.promise(() => context.api.sendMessage(self.chat, ads.content!, { parse_mode: "Markdown" }))
       else yield* Effect.promise(() => context.api.forwardMessage(self.chat, ads.chat!, Number(ads.message)!))
     }
 

@@ -51,12 +51,13 @@ export const AdsServiceLive = Layer.succeed(
               or(eq(ads.gender, "any"), eq(ads.gender, self.gender)),
           }),
         catch: () => new AdNotMatchedError(),
-      }).pipe(
-        Effect.map(Array.map(ad => {
-          if (ad.type === "small") return { ...ad, probability: ad.probability! + 2 };
-          return ad;
-        })),
-      ),
+      }),
+      // .pipe(
+      //   Effect.map(Array.map(ad => {
+      //     if (ad.type === "small") return { ...ad, probability: ad.probability! + 1 };
+      //     return ad;
+      //   })),
+      // ),
 
     increase: (self: Ads) => Match.value(self).pipe(
       Match.when({ impressions: -1 }, () => Effect.void),
@@ -79,16 +80,19 @@ export const AdsServiceLive = Layer.succeed(
         const total = Array.reduce(ads, 0, (acc, ad) => acc + (ad.probability || 0))
         const random = yield* Random.next.pipe(Effect.map(n => n * total))
         const current = yield* Ref.make(0);
+        // console.log(ads, total, random);
+        
 
         return yield* Effect.all(
 
           Array.map(ads, (ad) => Ref.updateAndGet(current, n => n + (ad.probability || 0)).pipe(
-            Effect.flatMap(current =>
-              Effect.if(current > random, {
-                onTrue: () => Effect.succeed(ad),
-                onFalse: () => Effect.fail(new AdNotMatchedError()),
-              })
-            ),
+            Effect.tap(current => Console.log(ad, current)),
+            Effect.map(current => current >= random ? ad : undefined),
+            //   Effect.if(current > random, {
+            //     onTrue: () => ad,
+            //     onFalse: () => undefined,
+            //   })
+            // ),
           ))
 
         ).pipe(

@@ -120,7 +120,9 @@ export const QueueServiceLive = Layer.succeed(
       ),
 
     find: (self: Queue) => Effect.gen(function*(_) {
+      
       const queue = yield* Effect.promise(() => Redis.keys("queue:*")).pipe(
+        // Effect.tap(Console.log),
         Effect.andThen(
           Effect.forEach(queue => Effect.promise(() => Redis.get(queue || ""))),
         ),
